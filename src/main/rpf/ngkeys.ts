@@ -22,6 +22,11 @@ const LUT_LEN = 256
 
 let cache: NgKeys | null = null
 let deriving: Promise<NgKeys | null> | null = null
+let lastReason = ''
+
+export function ngReason(): string {
+  return lastReason
+}
 
 function magicPath(): string {
   return join(app.getPath('userData'), 'codewalker-magic.dat')
@@ -86,13 +91,13 @@ class DotNetRandom {
     for (let i = 1; i < 55; i++) {
       const ii = (21 * i) % 55
       this.seed[ii] = mk
-      mk = mj - mk
+      mk = (mj - mk) | 0 // C# int32 subtraction wraps
       if (mk < 0) mk += DotNetRandom.MBIG
       mj = this.seed[ii]
     }
     for (let k = 1; k < 5; k++) {
       for (let i = 1; i < 56; i++) {
-        this.seed[i] -= this.seed[1 + ((i + 30) % 55)]
+        this.seed[i] = (this.seed[i] - this.seed[1 + ((i + 30) % 55)]) | 0
         if (this.seed[i] < 0) this.seed[i] += DotNetRandom.MBIG
       }
     }
@@ -126,13 +131,21 @@ function u32Array(buf: Buffer, off: number, count: number): Uint32Array {
 }
 
 async function derive(gamePath: string): Promise<NgKeys | null> {
+  const t0 = Date.now()
   const aes = await loadAesKey(gamePath)
-  if (!aes) return null
+  if (!aes) {
+    lastReason = 'AES key not found in GTA5.exe'
+    console.error('[ng]', lastReason)
+    return null
+  }
+  console.log(`[ng] AES key found in ${Date.now() - t0}ms`)
 
   let magic: Buffer
   try {
     magic = await ensureMagic()
-  } catch {
+  } catch (e) {
+    lastReason = `magic.dat download failed: ${e instanceof Error ? e.message : e}`
+    console.error('[ng]', lastReason)
     return null
   }
 
@@ -151,10 +164,19 @@ async function derive(gamePath: string): Promise<NgKeys | null> {
   let blob: Buffer
   try {
     blob = inflateRawSync(dec)
-  } catch {
-    return null // wrong AES key / algo mismatch
+  } catch (e) {
+    lastReason = `magic de-scramble failed at inflate (AES key or Random port mismatch): ${
+      e instanceof Error ? e.message : e
+    }`
+    console.error('[ng]', lastReason)
+    return null
   }
-  if (blob.length < NG_KEYS_LEN + NG_TABLES_LEN + LUT_LEN) return null
+  console.log(`[ng] inflated blob ${blob.length} bytes (need ${NG_KEYS_LEN + NG_TABLES_LEN + LUT_LEN})`)
+  if (blob.length < NG_KEYS_LEN + NG_TABLES_LEN + LUT_LEN) {
+    lastReason = `inflated blob too short (${blob.length})`
+    console.error('[ng]', lastReason)
+    return null
+  }
 
   const keysBlob = blob.subarray(0, NG_KEYS_LEN)
   const tablesBlob = blob.subarray(NG_KEYS_LEN, NG_KEYS_LEN + NG_TABLES_LEN)
@@ -172,6 +194,8 @@ async function derive(gamePath: string): Promise<NgKeys | null> {
     decryptTables.push(rnds)
   }
 
+  lastReason = ''
+  console.log('[ng] NG keys derived OK')
   return { keys, decryptTables, lut }
 }
 

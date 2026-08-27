@@ -132,8 +132,8 @@ if (typeof window !== 'undefined' && !window.api) {
       showInFolder: async () => {},
     },
     ng: {
-      status: async () => ({ magicCached: false, ready: false }),
-      download: async () => ({ magicCached: true, ready: true }),
+      status: async () => ({ magicCached: false, ready: false, reason: '' }),
+      download: async () => ({ magicCached: true, ready: true, reason: '' }),
     },
     remote: {
       fetch: async (url: string) => ({

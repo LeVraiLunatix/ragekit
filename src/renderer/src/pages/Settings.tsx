@@ -17,7 +17,11 @@ import { cn } from '@/lib/utils'
 
 function NgKeysCard(): ReactNode {
   const { t } = useI18n()
-  const [status, setStatus] = useState<{ magicCached: boolean; ready: boolean } | null>(null)
+  const [status, setStatus] = useState<{
+    magicCached: boolean
+    ready: boolean
+    reason: string
+  } | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -60,6 +64,11 @@ function NgKeysCard(): ReactNode {
           {busy ? t('settings.ngDownloading') : t('settings.ngLocate')}
         </Button>
       </div>
+      {status?.reason && !status.ready && (
+        <p className="mt-2 rounded-lg border border-bad/25 bg-bad/10 px-3 py-2 font-mono text-[11px] text-bad">
+          {status.reason}
+        </p>
+      )}
       <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">{t('settings.ngNote')}</p>
     </Card>
   )

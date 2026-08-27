@@ -29,7 +29,7 @@ import {
   copyArchiveToMods,
   archiveBasename,
 } from './rpf/browser'
-import { magicCached, ngReady, refetchMagic, loadNgKeys } from './rpf/ngkeys'
+import { magicCached, ngReady, ngReason, refetchMagic, loadNgKeys } from './rpf/ngkeys'
 import { join } from 'node:path'
 import {
   listProfiles,
@@ -266,14 +266,14 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.ngStatus, async () => {
     const game = getConfig().game
     if (game?.valid) await loadNgKeys(game.path).catch(() => null)
-    return { magicCached: magicCached(), ready: ngReady() }
+    return { magicCached: magicCached(), ready: ngReady(), reason: ngReason() }
   })
 
   ipcMain.handle(IPC.ngSet, async () => {
     const game = getConfig().game
     if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
     const ok = await refetchMagic(game.path)
-    return { magicCached: magicCached(), ready: ok }
+    return { magicCached: magicCached(), ready: ok, reason: ngReason() }
   })
 
   ipcMain.handle(IPC.ngClear, () => {})

@@ -92,9 +92,9 @@ const api = {
       ipcRenderer.invoke(IPC.rpfShowInFolder, vpath),
   },
   ng: {
-    status: (): Promise<{ magicCached: boolean; ready: boolean }> =>
+    status: (): Promise<{ magicCached: boolean; ready: boolean; reason: string }> =>
       ipcRenderer.invoke(IPC.ngStatus),
-    download: (): Promise<{ magicCached: boolean; ready: boolean }> =>
+    download: (): Promise<{ magicCached: boolean; ready: boolean; reason: string }> =>
       ipcRenderer.invoke(IPC.ngSet),
   },
   remote: {
