@@ -17,6 +17,7 @@ import type { FoundMod, Mod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
+import { GameModeCard } from '@/components/GameModeCard'
 import { Button, Card, Badge, Toggle, EmptyState } from '@/components/ui'
 
 function StatusBadge({ status }: { status: Mod['status'] }): ReactNode {
@@ -269,6 +270,7 @@ export function LibraryPage(): ReactNode {
         </>
       }
     >
+      <GameModeCard />
       <ScanBanner />
 
       {mods.length === 0 ? (

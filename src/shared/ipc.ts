@@ -31,6 +31,7 @@ export const IPC = {
   // profiles
   profilesList: 'profiles:list',
   profilesCreate: 'profiles:create',
+  profilesDuplicate: 'profiles:duplicate',
   profilesRename: 'profiles:rename',
   profilesDelete: 'profiles:delete',
   profilesCapture: 'profiles:capture',

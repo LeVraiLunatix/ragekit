@@ -34,6 +34,20 @@ export function createProfile(name: string, fromCurrent = true): Profile {
   return profile
 }
 
+export function duplicateProfile(id: string): Profile {
+  const profiles = all()
+  const src = profiles.find((x) => x.id === id)
+  if (!src) throw new Error(`Unknown profile ${id}`)
+  const base = src.name.replace(/\s*\(\d+\)$/, '')
+  let n = 2
+  const taken = new Set(profiles.map((p) => p.name))
+  let name = `${base} (${n})`
+  while (taken.has(name)) name = `${base} (${++n})`
+  const copy: Profile = { id: randomUUID(), name, enabledMods: [...src.enabledMods] }
+  save([...profiles, copy])
+  return copy
+}
+
 export function renameProfile(id: string, name: string): Profile {
   const profiles = all()
   const p = profiles.find((x) => x.id === id)

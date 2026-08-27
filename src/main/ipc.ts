@@ -35,6 +35,7 @@ import { join } from 'node:path'
 import {
   listProfiles,
   createProfile,
+  duplicateProfile,
   renameProfile,
   deleteProfile,
   captureProfile,
@@ -162,6 +163,7 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.profilesCreate, (_e, name: string, fromCurrent: boolean) =>
     createProfile(name, fromCurrent),
   )
+  ipcMain.handle(IPC.profilesDuplicate, (_e, id: string) => duplicateProfile(id))
   ipcMain.handle(IPC.profilesRename, (_e, id: string, name: string) => renameProfile(id, name))
   ipcMain.handle(IPC.profilesDelete, (_e, id: string) => {
     deleteProfile(id)

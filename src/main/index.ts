@@ -1,12 +1,21 @@
 import { app, shell, BrowserWindow, nativeTheme } from 'electron'
 import { join } from 'node:path'
+import { existsSync, promises as fs } from 'node:fs'
 import { store, libraryDir, backupsDir, migrateDataDir } from './store'
 import { registerIpc } from './ipc'
-import { promises as fs } from 'node:fs'
 import type { LanguageCode } from '@shared/types'
 
 const isDev = !app.isPackaged
 const SUPPORTED_LANGS: LanguageCode[] = ['fr', 'en', 'es', 'de']
+
+/** Ragekit's own icon (dev only — the packaged .exe carries it natively). */
+function windowIcon(): string | undefined {
+  for (const rel of ['../../build/icon.ico', '../../build/icon.png']) {
+    const p = join(__dirname, rel)
+    if (existsSync(p)) return p
+  }
+  return undefined
+}
 
 async function ensureDirs(): Promise<void> {
   await fs.mkdir(libraryDir(), { recursive: true })
@@ -29,6 +38,7 @@ function createWindow(): void {
     minWidth: 940,
     minHeight: 600,
     show: false,
+    icon: windowIcon(),
     autoHideMenuBar: true,
     backgroundColor: '#0b0d12',
     titleBarStyle: 'hidden',
@@ -54,6 +64,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  // Windows: taskbar identity / icon grouping (otherwise dev groups as electron.exe).
+  if (process.platform === 'win32') app.setAppUserModelId('one.ragekit.app')
   nativeTheme.themeSource = store.get('config').theme === 'light' ? 'light' : 'dark'
   seedLanguageOnFirstRun()
   await migrateDataDir().catch((err) => console.error('data dir migration failed:', err))

@@ -64,6 +64,12 @@ if (typeof window !== 'undefined' && !window.api) {
         mockProfiles.push(p)
         return p
       },
+      duplicate: async (id: string) => {
+        const src = mockProfiles.find((x) => x.id === id)!
+        const p = { id: `p${Date.now()}`, name: `${src.name} (2)`, enabledMods: [...src.enabledMods] }
+        mockProfiles.push(p)
+        return p
+      },
       rename: async (id: string, name: string) => {
         const p = mockProfiles.find((x) => x.id === id)!
         p.name = name

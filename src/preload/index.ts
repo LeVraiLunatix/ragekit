@@ -63,6 +63,7 @@ const api = {
     list: (): Promise<Profile[]> => ipcRenderer.invoke(IPC.profilesList),
     create: (name: string, fromCurrent: boolean): Promise<Profile> =>
       ipcRenderer.invoke(IPC.profilesCreate, name, fromCurrent),
+    duplicate: (id: string): Promise<Profile> => ipcRenderer.invoke(IPC.profilesDuplicate, id),
     rename: (id: string, name: string): Promise<Profile> =>
       ipcRenderer.invoke(IPC.profilesRename, id, name),
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IPC.profilesDelete, id),
