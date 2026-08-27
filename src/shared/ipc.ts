@@ -23,12 +23,26 @@ export const IPC = {
   modsRemove: 'mods:remove',
   modsReorder: 'mods:reorder',
   modsOpenFolder: 'mods:openFolder',
+  modsMove: 'mods:move', // shift load order up/down
+  modsConflicts: 'mods:conflicts',
   modsScan: 'mods:scan', // find mods installed outside the app
   modsAdopt: 'mods:adopt', // pull found mods into the library
+
+  // profiles
+  profilesList: 'profiles:list',
+  profilesCreate: 'profiles:create',
+  profilesRename: 'profiles:rename',
+  profilesDelete: 'profiles:delete',
+  profilesCapture: 'profiles:capture',
+  profilesSetMods: 'profiles:setMods',
+  profilesApply: 'profiles:apply',
 
   // online-safe mode
   onlineSetMode: 'online:setMode',
   onlineGameRunning: 'online:gameRunning',
+
+  // diagnostics
+  diagnosticsRead: 'diagnostics:read',
 
   // dependencies
   depsStatus: 'deps:status',

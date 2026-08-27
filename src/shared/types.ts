@@ -115,6 +115,21 @@ export interface ImportResult {
   plan: InstallPlan
 }
 
+export type LogLevel = 'error' | 'warn' | 'info'
+
+export interface LogEntry {
+  level: LogLevel
+  text: string
+}
+
+export interface LogFile {
+  name: string
+  mtimeMs: number
+  errors: number
+  warns: number
+  entries: LogEntry[]
+}
+
 /** Generic progress event streamed from long-running main-process tasks. */
 export interface TaskProgress {
   taskId: string

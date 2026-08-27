@@ -281,3 +281,36 @@ export async function removeMod(modId: string): Promise<void> {
 export function reorder(modId: string, loadOrder: number): Mod {
   return updateMod(modId, { loadOrder })
 }
+
+/** Swap a mod's load order with its neighbour in the sorted list. */
+export function moveMod(modId: string, direction: 'up' | 'down'): Mod[] {
+  const sorted = listMods()
+  const idx = sorted.findIndex((m) => m.id === modId)
+  const swapWith = direction === 'up' ? idx - 1 : idx + 1
+  if (idx < 0 || swapWith < 0 || swapWith >= sorted.length) return sorted
+  const a = sorted[idx]
+  const b = sorted[swapWith]
+  const ao = a.loadOrder
+  updateMod(a.id, { loadOrder: b.loadOrder })
+  updateMod(b.id, { loadOrder: ao })
+  // Normalise so equal/duplicate orders can't wedge future swaps.
+  listMods().forEach((m, i) => {
+    if (m.loadOrder !== i) updateMod(m.id, { loadOrder: i })
+  })
+  return listMods()
+}
+
+/** Game-relative paths written by more than one installed mod. */
+export function fileConflicts(): Array<{ path: string; modIds: string[] }> {
+  const owners = new Map<string, string[]>()
+  for (const mod of getMods()) {
+    if (mod.status !== 'installed') continue
+    for (const rel of mod.installedFiles) {
+      const key = rel.toLowerCase()
+      owners.set(key, [...(owners.get(key) ?? []), mod.id])
+    }
+  }
+  return [...owners.entries()]
+    .filter(([, ids]) => ids.length > 1)
+    .map(([path, modIds]) => ({ path, modIds }))
+}

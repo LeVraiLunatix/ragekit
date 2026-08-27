@@ -1,7 +1,15 @@
 import { create } from 'zustand'
-import type { AppConfig, DependencyStatus, GameInfo, LanguageCode, Mod } from '@shared/types'
+import type {
+  AppConfig,
+  DependencyStatus,
+  GameInfo,
+  LanguageCode,
+  Mod,
+  Profile,
+} from '@shared/types'
+import type { FileConflict } from '../../../preload'
 
-export type Route = 'library' | 'add' | 'dependencies' | 'settings'
+export type Route = 'library' | 'add' | 'profiles' | 'dependencies' | 'diagnostics' | 'settings'
 
 interface AppState {
   ready: boolean
@@ -9,6 +17,8 @@ interface AppState {
   config: AppConfig | null
   mods: Mod[]
   deps: DependencyStatus[]
+  profiles: Profile[]
+  conflicts: FileConflict[]
   busy: string | null
 
   setRoute: (r: Route) => void
@@ -16,6 +26,7 @@ interface AppState {
   bootstrap: () => Promise<void>
   refreshMods: () => Promise<void>
   refreshDeps: () => Promise<void>
+  refreshProfiles: () => Promise<void>
   setGame: (game: GameInfo | null) => Promise<void>
   setLanguage: (language: LanguageCode) => Promise<void>
   completeOnboarding: () => Promise<void>
@@ -28,20 +39,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   config: null,
   mods: [],
   deps: [],
+  profiles: [],
+  conflicts: [],
   busy: null,
 
   setRoute: (route) => set({ route }),
   setBusy: (busy) => set({ busy }),
 
   bootstrap: async () => {
-    const [config, mods] = await Promise.all([window.api.config.get(), window.api.mods.list()])
-    set({ config, mods, ready: true })
+    const [config, mods, profiles] = await Promise.all([
+      window.api.config.get(),
+      window.api.mods.list(),
+      window.api.profiles.list(),
+    ])
+    set({ config, mods, profiles, ready: true })
+    void get().refreshMods() // also pulls conflicts
     if (config.game?.valid) void get().refreshDeps()
   },
 
-  refreshMods: async () => set({ mods: await window.api.mods.list() }),
+  refreshMods: async () => {
+    const [mods, conflicts] = await Promise.all([
+      window.api.mods.list(),
+      window.api.mods.conflicts(),
+    ])
+    set({ mods, conflicts })
+  },
 
   refreshDeps: async () => set({ deps: await window.api.deps.status() }),
+
+  refreshProfiles: async () => set({ profiles: await window.api.profiles.list() }),
 
   setGame: async (game) => {
     const config = await window.api.config.setGame(game)

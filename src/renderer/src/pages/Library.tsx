@@ -8,6 +8,8 @@ import {
   FileBox,
   SearchCheck,
   ChevronDown,
+  ChevronUp,
+  TriangleAlert,
 } from 'lucide-react'
 import type { FoundMod, Mod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -85,11 +87,27 @@ function ScanBanner(): ReactNode {
   )
 }
 
-function ModRow({ mod, locked }: { mod: Mod; locked: boolean }): ReactNode {
+function ModRow({
+  mod,
+  locked,
+  conflictWith,
+  canMoveUp,
+  canMoveDown,
+}: {
+  mod: Mod
+  locked: boolean
+  conflictWith: string[]
+  canMoveUp: boolean
+  canMoveDown: boolean
+}): ReactNode {
   const { t, tc, relative } = useI18n()
   const { refreshMods, refreshDeps } = useAppStore()
   const [busy, setBusy] = useState(false)
   const enabled = mod.status === 'installed'
+
+  const move = (direction: 'up' | 'down'): void => {
+    void window.api.mods.move(mod.id, direction).then(() => Promise.all([refreshMods(), refreshDeps()]))
+  }
 
   const toggle = async (): Promise<void> => {
     setBusy(true)
@@ -116,6 +134,26 @@ function ModRow({ mod, locked }: { mod: Mod; locked: boolean }): ReactNode {
 
   return (
     <Card className="flex items-center gap-3 p-4">
+      {enabled && !locked && (
+        <div className="flex flex-col">
+          <button
+            onClick={() => move('up')}
+            disabled={!canMoveUp}
+            title={t('library.moveUp')}
+            className="no-drag text-ink-faint hover:text-ink disabled:opacity-25"
+          >
+            <ChevronUp className="size-4" />
+          </button>
+          <button
+            onClick={() => move('down')}
+            disabled={!canMoveDown}
+            title={t('library.moveDown')}
+            className="no-drag text-ink-faint hover:text-ink disabled:opacity-25"
+          >
+            <ChevronDown className="size-4" />
+          </button>
+        </div>
+      )}
       <Toggle checked={enabled} onChange={toggle} disabled={busy || locked} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -126,6 +164,17 @@ function ModRow({ mod, locked }: { mod: Mod; locked: boolean }): ReactNode {
             <FileBox className="size-3.5 shrink-0 text-ink-faint" />
           )}
           {mod.tags.includes('adopted') && <Badge tone="neutral">adopted</Badge>}
+          {conflictWith.length > 0 && (
+            <span
+              title={t('library.conflictHint', { mods: conflictWith.join(', ') })}
+              className="inline-flex items-center gap-1 text-warn"
+            >
+              <TriangleAlert className="size-3.5" />
+              <span className="text-[11px] font-medium uppercase tracking-wide">
+                {t('library.conflict')}
+              </span>
+            </span>
+          )}
         </div>
         <p className="truncate text-[12px] text-ink-faint">
           {[
@@ -151,8 +200,18 @@ function ModRow({ mod, locked }: { mod: Mod; locked: boolean }): ReactNode {
 
 export function LibraryPage(): ReactNode {
   const { t, tc } = useI18n()
-  const { mods, config, setRoute } = useAppStore()
+  const { mods, config, conflicts, setRoute } = useAppStore()
   const locked = !!config?.onlineSafeMode
+
+  const nameById = new Map(mods.map((m) => [m.id, m.name]))
+  const conflictNames = new Map<string, Set<string>>()
+  for (const c of conflicts) {
+    for (const id of c.modIds) {
+      const others = c.modIds.filter((x) => x !== id).map((x) => nameById.get(x) ?? x)
+      conflictNames.set(id, new Set([...(conflictNames.get(id) ?? []), ...others]))
+    }
+  }
+  const installed = mods.filter((m) => m.status === 'installed')
 
   return (
     <Page
@@ -181,9 +240,19 @@ export function LibraryPage(): ReactNode {
         />
       ) : (
         <div className="space-y-2">
-          {mods.map((mod) => (
-            <ModRow key={mod.id} mod={mod} locked={locked} />
-          ))}
+          {mods.map((mod) => {
+            const enabledIdx = installed.findIndex((m) => m.id === mod.id)
+            return (
+              <ModRow
+                key={mod.id}
+                mod={mod}
+                locked={locked}
+                conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
+                canMoveUp={enabledIdx > 0}
+                canMoveDown={enabledIdx >= 0 && enabledIdx < installed.length - 1}
+              />
+            )
+          })}
         </div>
       )}
     </Page>

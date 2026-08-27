@@ -51,10 +51,22 @@ if (typeof window !== 'undefined' && !window.api) {
       remove: async () => {},
       reorder: async () => ({ ...mockMod }),
       openFolder: async () => {},
+      move: async () => [],
+      conflicts: async () => [],
       scan: async () => [],
       adopt: async () => [],
     },
+    profiles: {
+      list: async () => [],
+      create: async (name: string) => ({ id: 'p', name, enabledMods: [] }),
+      rename: async (id: string, name: string) => ({ id, name, enabledMods: [] }),
+      remove: async () => {},
+      capture: async (id: string) => ({ id, name: 'p', enabledMods: [] }),
+      setMods: async (id: string, modIds: string[]) => ({ id, name: 'p', enabledMods: modIds }),
+      apply: async () => {},
+    },
     deps: { status: async () => [] },
+    diagnostics: { read: async () => [] },
     online: {
       setMode: async (active) => {
         config = { ...config, onlineSafeMode: active }

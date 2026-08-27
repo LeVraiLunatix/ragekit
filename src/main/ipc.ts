@@ -13,9 +13,21 @@ import {
   setEnabled,
   removeMod,
   reorder,
+  moveMod,
+  fileConflicts,
 } from './mods/library'
 import { scanUnmanaged, adoptFound } from './mods/scan'
 import { setOnlineSafeMode, isGameRunning } from './online'
+import { readDiagnostics } from './diagnostics'
+import {
+  listProfiles,
+  createProfile,
+  renameProfile,
+  deleteProfile,
+  captureProfile,
+  setProfileMods,
+  applyProfile,
+} from './profiles'
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload)
@@ -119,6 +131,31 @@ export function registerIpc(): void {
     reorder(modId, loadOrder),
   )
 
+  ipcMain.handle(IPC.modsMove, (_e, modId: string, direction: 'up' | 'down') => {
+    const mods = moveMod(modId, direction)
+    broadcast(IPC.evtModsChanged, null)
+    return mods
+  })
+
+  ipcMain.handle(IPC.modsConflicts, () => fileConflicts())
+
+  ipcMain.handle(IPC.profilesList, () => listProfiles())
+  ipcMain.handle(IPC.profilesCreate, (_e, name: string, fromCurrent: boolean) =>
+    createProfile(name, fromCurrent),
+  )
+  ipcMain.handle(IPC.profilesRename, (_e, id: string, name: string) => renameProfile(id, name))
+  ipcMain.handle(IPC.profilesDelete, (_e, id: string) => {
+    deleteProfile(id)
+  })
+  ipcMain.handle(IPC.profilesCapture, (_e, id: string) => captureProfile(id))
+  ipcMain.handle(IPC.profilesSetMods, (_e, id: string, modIds: string[]) =>
+    setProfileMods(id, modIds),
+  )
+  ipcMain.handle(IPC.profilesApply, async (_e, id: string) => {
+    await applyProfile(id)
+    broadcast(IPC.evtModsChanged, null)
+  })
+
   ipcMain.handle(IPC.modsOpenFolder, (_e, modId: string) => {
     const mod = listMods().find((m) => m.id === modId)
     if (mod) shell.openPath(mod.sourceDir)
@@ -145,6 +182,12 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.onlineGameRunning, () => isGameRunning())
+
+  ipcMain.handle(IPC.diagnosticsRead, () => {
+    const game = getConfig().game
+    if (!game?.valid) return []
+    return readDiagnostics(game.path)
+  })
 
   ipcMain.handle(IPC.modsPlan, (_e, modId: string) => buildPlan(modId))
 

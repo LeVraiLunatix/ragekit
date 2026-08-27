@@ -7,7 +7,9 @@ import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
 import { LibraryPage } from '@/pages/Library'
 import { AddModsPage } from '@/pages/AddMods'
+import { ProfilesPage } from '@/pages/Profiles'
 import { DependenciesPage } from '@/pages/Dependencies'
+import { DiagnosticsPage } from '@/pages/Diagnostics'
 import { SettingsPage } from '@/pages/Settings'
 import { Onboarding } from '@/onboarding/Onboarding'
 
@@ -34,7 +36,9 @@ function Shell(): ReactNode {
         <main className="min-h-0 flex-1 overflow-y-auto">
           {route === 'library' && <LibraryPage />}
           {route === 'add' && <AddModsPage />}
+          {route === 'profiles' && <ProfilesPage />}
           {route === 'dependencies' && <DependenciesPage />}
+          {route === 'diagnostics' && <DiagnosticsPage />}
           {route === 'settings' && <SettingsPage />}
         </main>
       </div>
@@ -45,13 +49,16 @@ function Shell(): ReactNode {
 export default function App(): ReactNode {
   const { ready, config, bootstrap, refreshMods, refreshDeps } = useAppStore()
 
+  const refreshProfiles = useAppStore((s) => s.refreshProfiles)
+
   useEffect(() => {
     void bootstrap()
     return window.api.on.modsChanged(() => {
       void refreshMods()
       void refreshDeps()
+      void refreshProfiles()
     })
-  }, [bootstrap, refreshMods, refreshDeps])
+  }, [bootstrap, refreshMods, refreshDeps, refreshProfiles])
 
   return (
     <I18nProvider>

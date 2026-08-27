@@ -8,9 +8,16 @@ import type {
   ImportResult,
   InstallPlan,
   LanguageCode,
+  LogFile,
   Mod,
+  Profile,
   TaskProgress,
 } from '@shared/types'
+
+export interface FileConflict {
+  path: string
+  modIds: string[]
+}
 
 const api = {
   config: {
@@ -41,11 +48,29 @@ const api = {
     reorder: (modId: string, loadOrder: number): Promise<Mod> =>
       ipcRenderer.invoke(IPC.modsReorder, modId, loadOrder),
     openFolder: (modId: string): Promise<void> => ipcRenderer.invoke(IPC.modsOpenFolder, modId),
+    move: (modId: string, direction: 'up' | 'down'): Promise<Mod[]> =>
+      ipcRenderer.invoke(IPC.modsMove, modId, direction),
+    conflicts: (): Promise<FileConflict[]> => ipcRenderer.invoke(IPC.modsConflicts),
     scan: (): Promise<FoundMod[]> => ipcRenderer.invoke(IPC.modsScan),
     adopt: (items: FoundMod[]): Promise<Mod[]> => ipcRenderer.invoke(IPC.modsAdopt, items),
   },
+  profiles: {
+    list: (): Promise<Profile[]> => ipcRenderer.invoke(IPC.profilesList),
+    create: (name: string, fromCurrent: boolean): Promise<Profile> =>
+      ipcRenderer.invoke(IPC.profilesCreate, name, fromCurrent),
+    rename: (id: string, name: string): Promise<Profile> =>
+      ipcRenderer.invoke(IPC.profilesRename, id, name),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke(IPC.profilesDelete, id),
+    capture: (id: string): Promise<Profile> => ipcRenderer.invoke(IPC.profilesCapture, id),
+    setMods: (id: string, modIds: string[]): Promise<Profile> =>
+      ipcRenderer.invoke(IPC.profilesSetMods, id, modIds),
+    apply: (id: string): Promise<void> => ipcRenderer.invoke(IPC.profilesApply, id),
+  },
   deps: {
     status: (): Promise<DependencyStatus[]> => ipcRenderer.invoke(IPC.depsStatus),
+  },
+  diagnostics: {
+    read: (): Promise<LogFile[]> => ipcRenderer.invoke(IPC.diagnosticsRead),
   },
   online: {
     setMode: (active: boolean): Promise<{ active: boolean; moved: string[] }> =>
