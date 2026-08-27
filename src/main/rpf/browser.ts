@@ -2,12 +2,12 @@ import { promises as fs } from 'node:fs'
 import { join, dirname, relative, sep, basename } from 'node:path'
 import { loadAesKey } from './crypto'
 import { Rpf7, type RpfEntry, type RpfKeys } from './rpf7'
-import { loadNgKeys, ngKeysPath } from './ngkeys'
+import { loadNgKeys } from './ngkeys'
 import type { ExplorerListing, ExplorerNode, NodeCategory } from '@shared/types'
 import { ensureDir } from '../mods/fsutil'
 
 async function rpfKeys(gamePath: string): Promise<RpfKeys> {
-  const [aes, ng] = await Promise.all([loadAesKey(gamePath), loadNgKeys()])
+  const [aes, ng] = await Promise.all([loadAesKey(gamePath), loadNgKeys(gamePath)])
   return { aes, ng }
 }
 
@@ -125,8 +125,8 @@ export async function explore(gamePath: string, vpath: string): Promise<Explorer
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     let error = msg
-    if (/"NG"/.test(msg)) error = ngKeysPath() ? 'ng' : 'ng-nokeys'
-    else if (/did not decode/.test(msg) && /NG/.test(msg)) error = 'ng-failed'
+    if (/"NG" is not supported/.test(msg)) error = 'ng-nokeys'
+    else if (/did not decode.*NG/.test(msg) || /NG.*did not decode/.test(msg)) error = 'ng-failed'
     return { vpath, mode: 'rpf', writable: false, error, nodes: [] }
   }
 

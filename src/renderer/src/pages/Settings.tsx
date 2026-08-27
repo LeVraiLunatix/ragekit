@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils'
 
 function NgKeysCard(): ReactNode {
   const { t } = useI18n()
-  const [status, setStatus] = useState<{ path: string; loaded: boolean } | null>(null)
+  const [status, setStatus] = useState<{ magicCached: boolean; ready: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     void window.api.ng.status().then(setStatus)
@@ -29,46 +30,35 @@ function NgKeysCard(): ReactNode {
         <KeyRound className="size-4 text-brand" />
         <h2 className="text-sm font-semibold">{t('settings.ngTitle')}</h2>
         {status &&
-          (status.loaded ? (
+          (status.ready ? (
             <Badge tone="good">
-              <CheckCircle2 className="size-3" /> {t('settings.ngLoaded')}
+              <CheckCircle2 className="size-3" /> {t('settings.ngReady')}
             </Badge>
+          ) : status.magicCached ? (
+            <Badge tone="warn">{t('settings.ngPartial')}</Badge>
           ) : (
             <Badge tone="neutral">{t('settings.ngNone')}</Badge>
           ))}
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-ink-faint">{t('settings.ngSub')}</p>
-      {status?.path && (
-        <p className="mt-2 break-all rounded-lg border border-line bg-bg px-3 py-2 font-mono text-[11.5px] text-ink-soft">
-          {status.path}
-        </p>
-      )}
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3">
         <Button
           size="sm"
+          loading={busy}
           onClick={async () => {
+            setBusy(true)
             try {
-              setStatus(await window.api.ng.set())
+              setStatus(await window.api.ng.download())
             } catch (err) {
               alert(err instanceof Error ? err.message : String(err))
+            } finally {
+              setBusy(false)
             }
           }}
         >
           <KeyRound className="size-4" />
-          {t('settings.ngLocate')}
+          {busy ? t('settings.ngDownloading') : t('settings.ngLocate')}
         </Button>
-        {status?.path && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={async () => {
-              await window.api.ng.clear()
-              setStatus({ path: '', loaded: false })
-            }}
-          >
-            {t('settings.ngClear')}
-          </Button>
-        )}
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">{t('settings.ngNote')}</p>
     </Card>

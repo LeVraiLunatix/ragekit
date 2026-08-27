@@ -61,7 +61,7 @@ async function editDlclist(
   gamePath: string,
   mutate: (xml: string) => string | null,
 ): Promise<void> {
-  const [aes, ng] = await Promise.all([loadAesKey(gamePath), loadNgKeys()])
+  const [aes, ng] = await Promise.all([loadAesKey(gamePath), loadNgKeys(gamePath)])
   const rpfPath = join(gamePath, 'mods', 'update', 'update.rpf')
   const rpf = await Rpf7.open(rpfPath, { aes, ng })
   const xml = (await rpf.readFile(DLCLIST_INNER)).toString('utf8')

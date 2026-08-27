@@ -1,121 +1,87 @@
 /**
- * GTA V (Legacy) "NG" RPF encryption — the scheme used by the vanilla base
- * archives (update.rpf, common.rpf, x64*.rpf). It is an AES-like 17-round
- * block cipher whose per-file key is chosen from a 101-entry table by a hash
- * of the entry name and its length.
+ * GTA V (Legacy) "NG" RPF encryption — used by the vanilla base archives
+ * (update.rpf, common.rpf, x64*.rpf). A 17-round AES-like block cipher whose
+ * per-blob key is chosen from 101 candidates by a LUT-based hash of the name
+ * plus the blob length.
  *
- * The key material (101 keys + 17 rounds of decrypt tables) is NOT shipped — the
- * user points Ragekit at a key file (CodeWalker "Key.dat" or an equivalent
- * dump). Implementation is EXPERIMENTAL: a wrong round would produce garbage,
- * which the caller detects (the TOC must decode to a valid root directory) and
- * reports rather than acting on.
+ * Algorithm ported verbatim from CodeWalker (MIT, © Neodymium / dexyfex):
+ * GTACrypto.DecryptNGBlock / DecryptNGRoundA / DecryptNGRoundB and
+ * GTA5Hash.CalculateHash. The key material comes from CodeWalker's `magic.dat`
+ * (see ngkeys.ts) — nothing is shipped by Ragekit.
  */
 
 export interface NgKeys {
-  /** 101 keys, each 272 bytes (68 little-endian uint32). */
+  /** 101 keys, each 68 little-endian uint32 (272 bytes). */
   keys: Uint32Array[]
-  /** [17 rounds][16 tables] of 256 uint32 each. */
+  /** [17 rounds][16 sub-tables] of 256 uint32. */
   decryptTables: Uint32Array[][]
+  /** 256-byte hash lookup table used by calculateHash. */
+  lut: Uint8Array
 }
 
-/** Jenkins one-at-a-time hash of the lowercased name. */
-export function jenkinsHash(name: string): number {
-  let h = 0
-  const s = name.toLowerCase()
-  for (let i = 0; i < s.length; i++) {
-    h = (h + s.charCodeAt(i)) >>> 0
-    h = (h + (h << 10)) >>> 0
-    h = (h ^ (h >>> 6)) >>> 0
+/** GTA5Hash.CalculateHash — NOT Jenkins; uses the NG hash LUT. */
+export function calculateHash(text: string, lut: Uint8Array): number {
+  let result = 0
+  for (let i = 0; i < text.length; i++) {
+    const temp = Math.imul(1025, (lut[text.charCodeAt(i) & 0xff] + result) >>> 0) >>> 0
+    result = ((temp >>> 6) ^ temp) >>> 0
   }
-  h = (h + (h << 3)) >>> 0
-  h = (h ^ (h >>> 11)) >>> 0
-  h = (h + (h << 15)) >>> 0
-  return h >>> 0
+  const r9 = Math.imul(9, result) >>> 0
+  return Math.imul(32769, ((r9 >>> 11) ^ r9) >>> 0) >>> 0
 }
 
-/** Which of the 101 keys decrypts a blob with this name-hash and length. */
+/** GTACrypto.GetNGKey key selection. */
 export function ngKeyIndex(hash: number, length: number): number {
-  return ((hash >>> 0) + (length >>> 0) + (101 - 40)) % 101
+  return (((hash >>> 0) + (length >>> 0) + (101 - 40)) >>> 0) % 101
 }
 
-// Inv-ShiftRows byte pickup patterns.
-const A = [
+// table sub-index / data-byte pickup patterns per output column
+const PAT_A = [
   [0, 1, 2, 3],
   [4, 5, 6, 7],
   [8, 9, 10, 11],
   [12, 13, 14, 15],
 ]
-const B = [
+const PAT_B = [
   [0, 7, 10, 13],
-  [4, 1, 14, 11],
-  [8, 5, 2, 15],
-  [12, 9, 6, 3],
+  [1, 4, 11, 14],
+  [2, 5, 8, 15],
+  [3, 6, 9, 12],
 ]
 
-function roundColumns(
+function round(
   data: Uint8Array,
-  keyU32: Uint32Array,
+  key: Uint32Array,
   keyOff: number,
   tables: Uint32Array[],
   pat: number[][],
 ): Uint8Array {
-  const out = new Uint8Array(16)
-  const dv = new DataView(out.buffer)
+  const out = Buffer.alloc(16)
   for (let c = 0; c < 4; c++) {
     const p = pat[c]
-    const v =
-      (keyU32[keyOff + c] ^
-        tables[c * 4 + 0][data[p[0]]] ^
-        tables[c * 4 + 1][data[p[1]]] ^
-        tables[c * 4 + 2][data[p[2]]] ^
-        tables[c * 4 + 3][data[p[3]]]) >>>
+    const x =
+      (tables[p[0]][data[p[0]]] ^
+        tables[p[1]][data[p[1]]] ^
+        tables[p[2]][data[p[2]]] ^
+        tables[p[3]][data[p[3]]] ^
+        key[keyOff + c]) >>>
       0
-    dv.setUint32(c * 4, v, true)
+    out.writeUInt32LE(x, c * 4)
   }
   return out
 }
 
-/** Final round: no MixColumns — take the low byte of each 4-way table XOR. */
-function roundLast(
-  data: Uint8Array,
-  keyU32: Uint32Array,
-  keyOff: number,
-  tables: Uint32Array[],
-): Uint8Array {
-  const keyBytes = new Uint8Array(keyU32.buffer, keyOff * 4, 16)
-  const out = new Uint8Array(16)
-  for (let c = 0; c < 4; c++) {
-    const p = B[c]
-    for (let j = 0; j < 4; j++) {
-      const t = c * 4 + j
-      const x =
-        (tables[(t * 4 + 0) & 15][data[p[0]]] ^
-          tables[(t * 4 + 1) & 15][data[p[1]]] ^
-          tables[(t * 4 + 2) & 15][data[p[2]]] ^
-          tables[(t * 4 + 3) & 15][data[p[3]]]) &
-        0xff
-      out[c * 4 + j] = (x ^ keyBytes[c * 4 + j]) & 0xff
-    }
-  }
-  return out
-}
-
-function decryptBlock(block: Uint8Array, key: Uint32Array, tables: Uint32Array[][]): Uint8Array {
-  let b = roundColumns(block, key, 0, tables[0], A)
-  b = roundColumns(b, key, 4, tables[1], A)
-  for (let r = 2; r <= 15; r++) b = roundColumns(b, key, r * 4, tables[r], B)
-  b = roundLast(b, key, 64, tables[16])
+function decryptBlock(block: Uint8Array, key: Uint32Array, tabs: Uint32Array[][]): Uint8Array {
+  let b: Uint8Array = round(block, key, 0, tabs[0], PAT_A)
+  b = round(b, key, 4, tabs[1], PAT_A)
+  for (let k = 2; k <= 15; k++) b = round(b, key, k * 4, tabs[k], PAT_B)
+  b = round(b, key, 64, tabs[16], PAT_A)
   return b
 }
 
-/** Decrypt an NG blob. `name` is the entry / archive filename, `length` its size. */
-export function decryptNg(
-  data: Buffer,
-  name: string,
-  length: number,
-  ng: NgKeys,
-): Buffer {
-  const key = ng.keys[ngKeyIndex(jenkinsHash(name), length)]
+/** Decrypt an NG blob. `name` = entry/archive filename, `length` its size. */
+export function decryptNg(data: Buffer, name: string, length: number, ng: NgKeys): Buffer {
+  const key = ng.keys[ngKeyIndex(calculateHash(name, ng.lut), length)]
   if (!key) throw new Error('NG key table is incomplete.')
   const out = Buffer.from(data)
   const blocks = Math.floor(data.length / 16)
@@ -123,6 +89,5 @@ export function decryptNg(
     const dec = decryptBlock(data.subarray(i * 16, i * 16 + 16), key, ng.decryptTables)
     out.set(dec, i * 16)
   }
-  // trailing < 16 bytes pass through unchanged
-  return out
+  return out // trailing < 16 bytes left as-is
 }

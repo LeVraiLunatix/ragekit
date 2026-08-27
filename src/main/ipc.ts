@@ -29,7 +29,7 @@ import {
   copyArchiveToMods,
   archiveBasename,
 } from './rpf/browser'
-import { ngKeysPath, setNgKeysPath, clearNgKeys, loadNgKeys } from './rpf/ngkeys'
+import { magicCached, ngReady, refetchMagic, loadNgKeys } from './rpf/ngkeys'
 import { join } from 'node:path'
 import {
   listProfiles,
@@ -264,22 +264,19 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.ngStatus, async () => {
-    const path = ngKeysPath()
-    return { path, loaded: !!path && !!(await loadNgKeys()) }
+    const game = getConfig().game
+    if (game?.valid) await loadNgKeys(game.path).catch(() => null)
+    return { magicCached: magicCached(), ready: ngReady() }
   })
 
   ipcMain.handle(IPC.ngSet, async () => {
-    const win = BrowserWindow.getFocusedWindow() ?? undefined
-    const res = await dialog.showOpenDialog(win!, {
-      title: 'Select an NG key file (CodeWalker Key.dat or equivalent)',
-      properties: ['openFile'],
-    })
-    if (res.canceled || !res.filePaths[0]) return { path: ngKeysPath(), loaded: false }
-    await setNgKeysPath(res.filePaths[0])
-    return { path: res.filePaths[0], loaded: true }
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    const ok = await refetchMagic(game.path)
+    return { magicCached: magicCached(), ready: ok }
   })
 
-  ipcMain.handle(IPC.ngClear, () => clearNgKeys())
+  ipcMain.handle(IPC.ngClear, () => {})
 
   ipcMain.handle(IPC.remoteFetch, (_e, url: string) => fetchModInfo(url))
 

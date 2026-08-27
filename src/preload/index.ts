@@ -92,9 +92,10 @@ const api = {
       ipcRenderer.invoke(IPC.rpfShowInFolder, vpath),
   },
   ng: {
-    status: (): Promise<{ path: string; loaded: boolean }> => ipcRenderer.invoke(IPC.ngStatus),
-    set: (): Promise<{ path: string; loaded: boolean }> => ipcRenderer.invoke(IPC.ngSet),
-    clear: (): Promise<void> => ipcRenderer.invoke(IPC.ngClear),
+    status: (): Promise<{ magicCached: boolean; ready: boolean }> =>
+      ipcRenderer.invoke(IPC.ngStatus),
+    download: (): Promise<{ magicCached: boolean; ready: boolean }> =>
+      ipcRenderer.invoke(IPC.ngSet),
   },
   remote: {
     fetch: (url: string): Promise<RemoteMod> => ipcRenderer.invoke(IPC.remoteFetch, url),

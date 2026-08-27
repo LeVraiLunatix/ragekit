@@ -86,18 +86,26 @@ export class Rpf7 {
     const encryption = encName(head16.readUInt32LE(12))
     if (encryption === 'UNKNOWN') throw new Error(`RPF encryption "${encryption}" is not supported.`)
 
-    const tocLen = entryCount * 16 + namesLength
-    let plain: Buffer = Buffer.from(toc.subarray(0, tocLen))
+    const encLen = entryCount * 16
+    // Entries and names are decrypted as SEPARATE buffers (CodeWalker does the
+    // same) — each keeps its own sub-16 remainder.
+    const rawEntries = Buffer.from(toc.subarray(0, encLen))
+    const rawNames = Buffer.from(toc.subarray(encLen, encLen + namesLength))
+    let entriesBuf: Buffer
+    let namesBuf: Buffer
     if (encryption === 'AES') {
       if (!keys.aes) throw new Error('This RPF is AES-encrypted but no key was provided.')
-      plain = aesDecrypt(plain, keys.aes)
+      entriesBuf = aesDecrypt(rawEntries, keys.aes)
+      namesBuf = aesDecrypt(rawNames, keys.aes)
     } else if (encryption === 'NG') {
       if (!keys.ng) throw new Error('RPF encryption "NG" is not supported.') // caller maps to ng-nokeys
-      plain = decryptNg(plain, ngName, ngLen, keys.ng)
+      entriesBuf = decryptNg(rawEntries, ngName, ngLen, keys.ng)
+      namesBuf = decryptNg(rawNames, ngName, ngLen, keys.ng)
+    } else {
+      entriesBuf = rawEntries
+      namesBuf = rawNames
     }
 
-    const entriesBuf = Buffer.from(plain.subarray(0, entryCount * 16))
-    const namesBuf = Buffer.from(plain.subarray(entryCount * 16, tocLen))
     if (entryCount === 0 || entriesBuf.readUInt32LE(4) !== DIR_IDENT) {
       throw new Error(`${label}: table of contents did not decode (encryption "${encryption}").`)
     }
@@ -182,10 +190,8 @@ export class Rpf7 {
     let data: Buffer = await this.readRaw(e.offset, readLen)
     if (e.encrypted) {
       if (this.encryption === 'NG') {
-        if (!this.keys.ng) throw new Error('File is NG-encrypted but no key file is loaded.')
-        const alignedLen = readLen & ~15
-        const dec = decryptNg(data.subarray(0, alignedLen), e.name, readLen, this.keys.ng)
-        data = Buffer.concat([dec, data.subarray(alignedLen)])
+        if (!this.keys.ng) throw new Error('File is NG-encrypted but NG keys are unavailable.')
+        data = decryptNg(data, e.name, readLen, this.keys.ng)
       } else {
         if (!this.keys.aes) throw new Error('File is encrypted but no key is available.')
         data = aesDecrypt(data, this.keys.aes)
@@ -241,20 +247,17 @@ export class Rpf7 {
         uncompressedSize: content.length,
         encrypted: false,
       })
-      const plainToc = Buffer.concat([newEntries, this.namesBuf])
-      let toc: Buffer = plainToc
-      // For AES *and* NG we write the TOC back AES-encrypted (we can't NG-encrypt).
+      // Encrypt entries and names as separate buffers (AES, 1 round). NG
+      // archives are rewritten as AES — we don't NG-encrypt.
+      let outEntries: Buffer = newEntries
+      let outNames: Buffer = this.namesBuf
       let rewriteHeaderToAes = false
       if (this.encryption === 'AES' || this.encryption === 'NG') {
-        if (!this.keys.aes) {
-          throw new Error('Editing this archive needs the AES key from GTA5.exe.')
-        }
-        toc = aesEncrypt(plainToc, this.keys.aes)
-        const back = aesDecrypt(toc, this.keys.aes)
-        if (
-          back.readUInt32LE(4) !== DIR_IDENT ||
-          !back.subarray(0, plainToc.length).equals(plainToc)
-        ) {
+        if (!this.keys.aes) throw new Error('Editing this archive needs the AES key from GTA5.exe.')
+        outEntries = aesEncrypt(newEntries, this.keys.aes)
+        outNames = aesEncrypt(this.namesBuf, this.keys.aes)
+        const back = aesDecrypt(outEntries, this.keys.aes)
+        if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(newEntries)) {
           throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
         }
         rewriteHeaderToAes = this.encryption === 'NG'
@@ -264,7 +267,8 @@ export class Rpf7 {
       const padded = Buffer.alloc(alignUp(payload.length, SECTOR))
       payload.copy(padded)
       await fd.write(padded, 0, padded.length, newOffset)
-      await fd.write(toc, 0, toc.length, 16)
+      await fd.write(outEntries, 0, outEntries.length, 16)
+      await fd.write(outNames, 0, outNames.length, 16 + outEntries.length)
       if (rewriteHeaderToAes) {
         const enc = Buffer.alloc(4)
         enc.writeUInt32LE(0x0ffffff9, 0) // AES
