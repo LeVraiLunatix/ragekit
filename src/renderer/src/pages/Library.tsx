@@ -1,6 +1,15 @@
-import { useState, type ReactNode } from 'react'
-import { Boxes, FolderOpen, Trash2, PlusCircle, PackageOpen, FileBox } from 'lucide-react'
-import type { Mod } from '@shared/types'
+import { useEffect, useState, type ReactNode } from 'react'
+import {
+  Boxes,
+  FolderOpen,
+  Trash2,
+  PlusCircle,
+  PackageOpen,
+  FileBox,
+  SearchCheck,
+  ChevronDown,
+} from 'lucide-react'
+import type { FoundMod, Mod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
@@ -14,7 +23,69 @@ function StatusBadge({ status }: { status: Mod['status'] }): ReactNode {
   return <Badge tone="neutral">{t('library.status.notInstalled')}</Badge>
 }
 
-function ModRow({ mod }: { mod: Mod }): ReactNode {
+function ScanBanner(): ReactNode {
+  const { t, tc } = useI18n()
+  const { config, refreshMods, refreshDeps } = useAppStore()
+  const [found, setFound] = useState<FoundMod[]>([])
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    if (config?.game?.valid) void window.api.mods.scan().then(setFound)
+  }, [config?.game?.valid])
+
+  if (dismissed || found.length === 0) return null
+
+  const adoptAll = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      await window.api.mods.adopt(found)
+      await Promise.all([refreshMods(), refreshDeps()])
+      setFound([])
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="mb-3 border-brand/25 bg-brand/[0.06] p-4">
+      <div className="flex items-center gap-3">
+        <SearchCheck className="size-5 shrink-0 text-brand-hi" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">{tc('scan.title', found.length)}</p>
+          <p className="text-[12px] text-ink-faint">{t('scan.body')}</p>
+        </div>
+        <Button size="sm" variant="primary" loading={busy} onClick={adoptAll}>
+          {t('scan.adoptAll')}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
+          {t('scan.dismiss')}
+        </Button>
+      </div>
+
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="no-drag mt-2 flex items-center gap-1 text-[12px] text-ink-faint hover:text-ink-soft"
+      >
+        <ChevronDown className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        {found.length}
+      </button>
+      {open && (
+        <ul className="mt-2 space-y-1 border-t border-line pt-2 text-[12px]">
+          {found.map((f) => (
+            <li key={f.id} className="flex items-center gap-2 text-ink-soft">
+              <span className="text-ink-faint">{t(`scan.kind.${f.kind}`)}</span>
+              <span className="truncate font-mono text-[11px]">{f.relPath}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+function ModRow({ mod, locked }: { mod: Mod; locked: boolean }): ReactNode {
   const { t, tc, relative } = useI18n()
   const { refreshMods, refreshDeps } = useAppStore()
   const [busy, setBusy] = useState(false)
@@ -45,7 +116,7 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
 
   return (
     <Card className="flex items-center gap-3 p-4">
-      <Toggle checked={enabled} onChange={toggle} disabled={busy} />
+      <Toggle checked={enabled} onChange={toggle} disabled={busy || locked} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">{mod.name}</p>
@@ -54,6 +125,7 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
           ) : (
             <FileBox className="size-3.5 shrink-0 text-ink-faint" />
           )}
+          {mod.tags.includes('adopted') && <Badge tone="neutral">adopted</Badge>}
         </div>
         <p className="truncate text-[12px] text-ink-faint">
           {[
@@ -70,7 +142,7 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
       <Button size="sm" variant="ghost" disabled={busy} onClick={() => window.api.mods.openFolder(mod.id)}>
         <FolderOpen className="size-3.5" />
       </Button>
-      <Button size="sm" variant="ghost" disabled={busy} onClick={remove}>
+      <Button size="sm" variant="ghost" disabled={busy || locked} onClick={remove}>
         <Trash2 className="size-3.5" />
       </Button>
     </Card>
@@ -79,7 +151,8 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
 
 export function LibraryPage(): ReactNode {
   const { t, tc } = useI18n()
-  const { mods, setRoute } = useAppStore()
+  const { mods, config, setRoute } = useAppStore()
+  const locked = !!config?.onlineSafeMode
 
   return (
     <Page
@@ -92,6 +165,8 @@ export function LibraryPage(): ReactNode {
         </Button>
       }
     >
+      <ScanBanner />
+
       {mods.length === 0 ? (
         <EmptyState
           icon={<Boxes className="size-8" />}
@@ -107,7 +182,7 @@ export function LibraryPage(): ReactNode {
       ) : (
         <div className="space-y-2">
           {mods.map((mod) => (
-            <ModRow key={mod.id} mod={mod} />
+            <ModRow key={mod.id} mod={mod} locked={locked} />
           ))}
         </div>
       )}

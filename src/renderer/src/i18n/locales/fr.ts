@@ -150,6 +150,31 @@ export const fr: Dict = {
     languageSub: 'Langue de l’interface.',
     note: "Les mods sont copiés dans une bibliothèque interne, tu peux donc supprimer le téléchargement d’origine après import. Les fichiers de jeu écrasés sont sauvegardés puis restaurés automatiquement quand tu désactives ou supprimes un mod.",
   },
+  online: {
+    storyMode: 'Mode Histoire',
+    safeMode: 'Online-safe',
+    toStory: 'Repasser en mode Histoire',
+    toSafe: 'Passer en online-safe',
+    working: 'Basculement…',
+    bannerTitle: 'Mode online-safe activé',
+    bannerBody:
+      'Tous les loaders de mods sont mis de côté — le jeu démarre 100 % vanilla. Repasse en mode Histoire pour rejouer avec tes mods.',
+    gameRunning: 'Ferme GTA V d’abord — basculer pendant qu’il tourne est risqué.',
+  },
+  scan: {
+    title_one: '{count} mod détecté hors de l’app',
+    title_other: '{count} mods détectés hors de l’app',
+    body: 'Installés à la main ou par un autre outil. Adopte-les pour les activer/désactiver et les retirer proprement ici.',
+    adoptAll: 'Tout adopter',
+    dismiss: 'Ignorer',
+    rescan: 'Scanner le dossier du jeu',
+    none: 'Aucun mod non géré trouvé.',
+    kind: {
+      asi: 'Plugin ASI',
+      script: 'Script',
+      'script-dll': 'Plugin .NET',
+    },
+  },
   time: {
     justNow: 'à l’instant',
     minutesAgo: 'il y a {n} min',

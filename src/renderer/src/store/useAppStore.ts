@@ -19,6 +19,7 @@ interface AppState {
   setGame: (game: GameInfo | null) => Promise<void>
   setLanguage: (language: LanguageCode) => Promise<void>
   completeOnboarding: () => Promise<void>
+  setOnlineSafe: (active: boolean) => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -55,6 +56,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   completeOnboarding: async () => {
     const config = await window.api.config.completeOnboarding()
+    set({ config })
+  },
+
+  setOnlineSafe: async (active) => {
+    await window.api.online.setMode(active)
+    const [config] = await Promise.all([window.api.config.get(), get().refreshMods()])
     set({ config })
   },
 }))

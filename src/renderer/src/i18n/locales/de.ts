@@ -149,6 +149,31 @@ export const de: Dict = {
     languageSub: 'Sprache der Oberfläche.',
     note: 'Mods werden in eine interne Bibliothek kopiert, du kannst den ursprünglichen Download nach dem Import also löschen. Überschriebene Spieldateien werden gesichert und automatisch wiederhergestellt, wenn du einen Mod deaktivierst oder entfernst.',
   },
+  online: {
+    storyMode: 'Story-Modus',
+    safeMode: 'Online-sicher',
+    toStory: 'Zurück zum Story-Modus',
+    toSafe: 'Auf online-sicher schalten',
+    working: 'Wird umgeschaltet…',
+    bannerTitle: 'Online-sicherer Modus ist an',
+    bannerBody:
+      'Alle Mod-Loader sind beiseitegelegt — das Spiel startet komplett vanilla. Wechsle zurück zum Story-Modus, um mit deinen Mods zu spielen.',
+    gameRunning: 'Schließe zuerst GTA V — im laufenden Spiel umzuschalten ist riskant.',
+  },
+  scan: {
+    title_one: '{count} Mod außerhalb der App gefunden',
+    title_other: '{count} Mods außerhalb der App gefunden',
+    body: 'Von Hand oder mit einem anderen Tool installiert. Übernimm sie, um sie hier zu schalten und sauber zu entfernen.',
+    adoptAll: 'Alle übernehmen',
+    dismiss: 'Verwerfen',
+    rescan: 'Spielordner scannen',
+    none: 'Keine nicht verwalteten Mods gefunden.',
+    kind: {
+      asi: 'ASI-Plugin',
+      script: 'Skript',
+      'script-dll': '.NET-Plugin',
+    },
+  },
   time: {
     justNow: 'gerade eben',
     minutesAgo: 'vor {n} Min.',

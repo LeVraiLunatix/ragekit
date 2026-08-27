@@ -13,6 +13,7 @@ if (typeof window !== 'undefined' && !window.api) {
     onboarded: false,
     activeProfileId: null,
     onlineWarningAccepted: false,
+    onlineSafeMode: false,
     theme: 'dark',
   }
   const noop = (): void => {}
@@ -25,9 +26,19 @@ if (typeof window !== 'undefined' && !window.api) {
       completeOnboarding: async () => (config = { ...config, onboarded: true }),
     },
     game: {
-      detect: async () => null,
-      browse: async () => null,
-      validate: async (path) => ({ path, platform: 'manual', valid: false }),
+      detect: async () => ({
+        path: 'D:\\SteamLibrary\\steamapps\\common\\Grand Theft Auto V',
+        platform: 'steam' as const,
+        valid: true,
+        version: '1.0.3095.0',
+      }),
+      browse: async () => ({
+        path: 'D:\\Games\\GTAV',
+        platform: 'manual' as const,
+        valid: true,
+        version: '1.0.3095.0',
+      }),
+      validate: async (path) => ({ path, platform: 'manual' as const, valid: true }),
     },
     mods: {
       list: async () => [],
@@ -40,8 +51,17 @@ if (typeof window !== 'undefined' && !window.api) {
       remove: async () => {},
       reorder: async () => ({ ...mockMod }),
       openFolder: async () => {},
+      scan: async () => [],
+      adopt: async () => [],
     },
     deps: { status: async () => [] },
+    online: {
+      setMode: async (active) => {
+        config = { ...config, onlineSafeMode: active }
+        return { active, moved: [] }
+      },
+      isGameRunning: async () => false,
+    },
     misc: { openExternal: async () => {}, openGameFolder: async () => {}, pathForFile: () => '' },
     on: { taskProgress: () => noop, modsChanged: () => noop },
   }

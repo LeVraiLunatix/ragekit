@@ -23,6 +23,12 @@ export const IPC = {
   modsRemove: 'mods:remove',
   modsReorder: 'mods:reorder',
   modsOpenFolder: 'mods:openFolder',
+  modsScan: 'mods:scan', // find mods installed outside the app
+  modsAdopt: 'mods:adopt', // pull found mods into the library
+
+  // online-safe mode
+  onlineSetMode: 'online:setMode',
+  onlineGameRunning: 'online:gameRunning',
 
   // dependencies
   depsStatus: 'deps:status',

@@ -37,6 +37,18 @@ export async function copyDir(from: string, to: string): Promise<void> {
   await fs.cp(from, to, { recursive: true })
 }
 
+/** Move a file or directory, falling back to copy+delete across volumes (EXDEV). */
+export async function movePath(from: string, to: string): Promise<void> {
+  await ensureDir(dirname(to))
+  try {
+    await fs.rename(from, to)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+    await fs.cp(from, to, { recursive: true })
+    await fs.rm(from, { recursive: true, force: true })
+  }
+}
+
 /** Remove a file and any now-empty parent folders up to (not including) `stopAt`. */
 export async function removeFileAndPrune(file: string, stopAt: string): Promise<void> {
   try {

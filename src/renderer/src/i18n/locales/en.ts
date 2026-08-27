@@ -147,6 +147,31 @@ export const en = {
     languageSub: 'Interface language.',
     note: 'Mods are copied into an internal library, so the original download can be deleted after importing. Overwritten game files are backed up and restored automatically when you disable or remove a mod.',
   },
+  online: {
+    storyMode: 'Story Mode',
+    safeMode: 'Online-safe',
+    toStory: 'Back to Story Mode',
+    toSafe: 'Go online-safe',
+    working: 'Switching…',
+    bannerTitle: 'Online-safe mode is on',
+    bannerBody:
+      'Every mod loader is moved aside — the game boots completely vanilla. Switch back to Story Mode to play with your mods.',
+    gameRunning: 'Close GTA V first — switching modes while it runs is unsafe.',
+  },
+  scan: {
+    title_one: '{count} mod found outside the app',
+    title_other: '{count} mods found outside the app',
+    body: 'Installed by hand or another tool. Adopt them to toggle and cleanly remove them here.',
+    adoptAll: 'Adopt all',
+    dismiss: 'Dismiss',
+    rescan: 'Scan game folder',
+    none: 'No unmanaged mods found.',
+    kind: {
+      asi: 'ASI plugin',
+      script: 'Script',
+      'script-dll': '.NET plugin',
+    },
+  },
   time: {
     justNow: 'just now',
     minutesAgo: '{n}m ago',

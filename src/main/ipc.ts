@@ -1,6 +1,6 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { AppConfig, GameInfo, LanguageCode } from '@shared/types'
+import type { AppConfig, FoundMod, GameInfo, LanguageCode } from '@shared/types'
 import { store } from './store'
 import { detectGame, validateGameFolder } from './game/detect'
 import { dependencyStatus } from './mods/deps'
@@ -14,6 +14,8 @@ import {
   removeMod,
   reorder,
 } from './mods/library'
+import { scanUnmanaged, adoptFound } from './mods/scan'
+import { setOnlineSafeMode, isGameRunning } from './online'
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload)
@@ -64,7 +66,7 @@ export function registerIpc(): void {
       title: 'Add mods',
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Mods', extensions: ['zip', 'oiv'] },
+        { name: 'Mods', extensions: ['zip', 'rar', 'oiv'] },
         { name: 'All files', extensions: ['*'] },
       ],
     })
@@ -121,6 +123,28 @@ export function registerIpc(): void {
     const mod = listMods().find((m) => m.id === modId)
     if (mod) shell.openPath(mod.sourceDir)
   })
+
+  ipcMain.handle(IPC.modsScan, () => {
+    const game = getConfig().game
+    if (!game?.valid) return []
+    return scanUnmanaged(game.path)
+  })
+
+  ipcMain.handle(IPC.modsAdopt, async (_e, items: FoundMod[]) => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    const created = await adoptFound(game.path, items)
+    broadcast(IPC.evtModsChanged, null)
+    return created
+  })
+
+  ipcMain.handle(IPC.onlineSetMode, async (_e, active: boolean) => {
+    const res = await setOnlineSafeMode(active)
+    broadcast(IPC.evtModsChanged, null)
+    return res
+  })
+
+  ipcMain.handle(IPC.onlineGameRunning, () => isGameRunning())
 
   ipcMain.handle(IPC.modsPlan, (_e, modId: string) => buildPlan(modId))
 

@@ -55,6 +55,16 @@ async function importZip(src: string, modDir: string): Promise<{ sourceDir: stri
   return { sourceDir: dest }
 }
 
+async function importRar(src: string, modDir: string): Promise<{ sourceDir: string }> {
+  const dest = join(modDir, 'src')
+  await ensureDir(dest)
+  const { createExtractorFromFile } = await import('node-unrar-js')
+  const extractor = await createExtractorFromFile({ filepath: src, targetPath: dest })
+  // The extraction is lazy — iterating the generator writes the files.
+  for (const _file of extractor.extract().files) void _file
+  return { sourceDir: dest }
+}
+
 async function importOiv(
   src: string,
   modDir: string,
@@ -100,6 +110,8 @@ export async function importFromPaths(paths: string[]): Promise<ImportResult[]> 
         ;({ sourceDir, name, author, version, description } = await importOiv(p, modDir))
       } else if (ext === '.zip') {
         ;({ sourceDir } = await importZip(p, modDir))
+      } else if (ext === '.rar') {
+        ;({ sourceDir } = await importRar(p, modDir))
       } else {
         await fs.rm(modDir, { recursive: true, force: true })
         throw new Error(`Unsupported file type: ${ext || '(none)'}`)

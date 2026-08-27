@@ -94,7 +94,20 @@ export interface AppConfig {
   onboarded: boolean
   activeProfileId: string | null
   onlineWarningAccepted: boolean
+  /** When true, mod loaders are moved aside so the game runs vanilla (online-safe). */
+  onlineSafeMode: boolean
   theme: 'dark' | 'light'
+}
+
+/** A mod file found in the game folder that the app is not managing. */
+export interface FoundMod {
+  /** Stable id derived from the path. */
+  id: string
+  /** Path relative to the game folder. */
+  relPath: string
+  kind: 'asi' | 'script' | 'script-dll'
+  sizeBytes: number
+  suggestedName: string
 }
 
 export interface ImportResult {

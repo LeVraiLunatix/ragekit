@@ -3,6 +3,7 @@ import { IPC } from '@shared/ipc'
 import type {
   AppConfig,
   DependencyStatus,
+  FoundMod,
   GameInfo,
   ImportResult,
   InstallPlan,
@@ -40,9 +41,16 @@ const api = {
     reorder: (modId: string, loadOrder: number): Promise<Mod> =>
       ipcRenderer.invoke(IPC.modsReorder, modId, loadOrder),
     openFolder: (modId: string): Promise<void> => ipcRenderer.invoke(IPC.modsOpenFolder, modId),
+    scan: (): Promise<FoundMod[]> => ipcRenderer.invoke(IPC.modsScan),
+    adopt: (items: FoundMod[]): Promise<Mod[]> => ipcRenderer.invoke(IPC.modsAdopt, items),
   },
   deps: {
     status: (): Promise<DependencyStatus[]> => ipcRenderer.invoke(IPC.depsStatus),
+  },
+  online: {
+    setMode: (active: boolean): Promise<{ active: boolean; moved: string[] }> =>
+      ipcRenderer.invoke(IPC.onlineSetMode, active),
+    isGameRunning: (): Promise<boolean> => ipcRenderer.invoke(IPC.onlineGameRunning),
   },
   misc: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke(IPC.openExternal, url),
