@@ -88,51 +88,48 @@ if (typeof window !== 'undefined' && !window.api) {
       clear: async () => {},
     },
     rpf: {
-      list: async () => [
-        { rel: 'update/update.rpf', sizeBytes: 1258291200, encryption: 'AES' as const, inMods: false },
-        { rel: 'x64a.rpf', sizeBytes: 2147483648, encryption: 'AES' as const, inMods: false },
-        { rel: 'mods/update/update.rpf', sizeBytes: 1258291200, encryption: 'AES' as const, inMods: true },
-      ],
-      open: async (chain: string[]) => {
-        const d = (name: string, path: string) => ({
-          name,
-          path,
-          isDir: true,
-          isResource: false,
-          isNestedRpf: false,
-          size: 0,
-        })
-        const f = (name: string, path: string, size: number, res = false, rpf = false) => ({
-          name,
-          path,
-          isDir: false,
-          isResource: res,
-          isNestedRpf: rpf,
-          size,
-        })
-        return {
-          encryption: 'AES' as const,
-          writable: chain[0].startsWith('mods/'),
-          nodes: [
-            d('common', 'common'),
-            d('x64', 'x64'),
-            d('data', 'common/data'),
-            f('gtxd.meta', 'common/data/gtxd.meta', 4821),
-            f('dlclist.xml', 'common/data/dlclist.xml', 2310),
-            f('handling.meta', 'common/data/handling.meta', 91002),
-            f('vehicles.meta', 'common/data/vehicles.meta', 31877),
-            f('t20.yft', 'x64/t20.yft', 814722, true),
-            f('t20.ytd', 'x64/t20.ytd', 5353326, true),
-            f('vehicles.rpf', 'x64/vehicles.rpf', 3158016, false, true),
-            f('setup2.xml', 'setup2.xml', 490),
-            f('content.xml', 'content.xml', 2476),
-          ],
+      explore: async (vpath: string) => {
+        const n = (
+          name: string,
+          kind: 'dir' | 'file' | 'rpf',
+          size: number,
+          category: string,
+          typeLabel: string,
+        ) => ({ name, vpath: vpath ? `${vpath}/${name}` : name, kind, size, category, typeLabel }) as never
+        if (vpath === '') {
+          return {
+            vpath, mode: 'fs' as const, writable: false, nodes: [
+              n('BattlEye', 'dir', 0, 'folder', 'Folder'),
+              n('update', 'dir', 0, 'folder', 'Folder'),
+              n('x64', 'dir', 0, 'folder', 'Folder'),
+              n('GTA5.exe', 'file', 47467520, 'application', 'Application'),
+              n('bink2w64.dll', 'file', 446464, 'dll', 'Dynamic-link library'),
+              n('commandline.txt', 'file', 1024, 'text', 'Plain text'),
+              n('common.rpf', 'rpf', 27000000, 'rpf', 'Rage Package File'),
+              n('x64a.rpf', 'rpf', 48700000, 'rpf', 'Rage Package File'),
+            ],
+          }
         }
+        if (vpath === 'update') {
+          return { vpath, mode: 'fs' as const, writable: false, nodes: [
+            n('x64', 'dir', 0, 'folder', 'Folder'),
+            n('update.rpf', 'rpf', 1258291200, 'rpf', 'Rage Package File'),
+          ] }
+        }
+        if (vpath === 'common.rpf') {
+          return { vpath, mode: 'rpf' as const, writable: false, error: 'ng', nodes: [] }
+        }
+        return { vpath, mode: 'rpf' as const, writable: vpath.startsWith('mods/'), encryption: 'OPEN' as const, nodes: [
+          n('data', 'dir', 0, 'folder', 'Folder'),
+          n('setup2.xml', 'file', 490, 'textdata', 'XML'),
+          n('vehicles.meta', 'file', 31877, 'textdata', 'Meta'),
+        ] }
       },
       readText: async () => '<?xml version="1.0"?>\n<Example>mock</Example>',
       extract: async () => true,
       replace: async () => true,
-      copyToMods: async (rel: string) => `mods/${rel}`,
+      copyToMods: async (v: string) => `mods/${v}`,
+      showInFolder: async () => {},
     },
     remote: {
       fetch: async (url: string) => ({

@@ -13,8 +13,7 @@ import type {
   Mod,
   Profile,
   RemoteMod,
-  RpfArchiveInfo,
-  RpfOpened,
+  ExplorerListing,
   TaskProgress,
   UpdateInfo,
   VanillaSnapshot,
@@ -84,15 +83,13 @@ const api = {
     clear: (): Promise<void> => ipcRenderer.invoke(IPC.integrityClear),
   },
   rpf: {
-    list: (): Promise<RpfArchiveInfo[]> => ipcRenderer.invoke(IPC.rpfList),
-    open: (chain: string[]): Promise<RpfOpened> => ipcRenderer.invoke(IPC.rpfOpen, chain),
-    readText: (chain: string[], innerPath: string): Promise<string> =>
-      ipcRenderer.invoke(IPC.rpfReadText, chain, innerPath),
-    extract: (chain: string[], innerPath: string): Promise<boolean> =>
-      ipcRenderer.invoke(IPC.rpfExtract, chain, innerPath),
-    replace: (chain: string[], innerPath: string): Promise<boolean> =>
-      ipcRenderer.invoke(IPC.rpfReplace, chain, innerPath),
-    copyToMods: (rel: string): Promise<string> => ipcRenderer.invoke(IPC.rpfCopyToMods, rel),
+    explore: (vpath: string): Promise<ExplorerListing> => ipcRenderer.invoke(IPC.rpfExplore, vpath),
+    readText: (vpath: string): Promise<string> => ipcRenderer.invoke(IPC.rpfReadText, vpath),
+    extract: (vpath: string): Promise<boolean> => ipcRenderer.invoke(IPC.rpfExtract, vpath),
+    replace: (vpath: string): Promise<boolean> => ipcRenderer.invoke(IPC.rpfReplace, vpath),
+    copyToMods: (vpath: string): Promise<string> => ipcRenderer.invoke(IPC.rpfCopyToMods, vpath),
+    showInFolder: (vpath: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.rpfShowInFolder, vpath),
   },
   remote: {
     fetch: (url: string): Promise<RemoteMod> => ipcRenderer.invoke(IPC.remoteFetch, url),

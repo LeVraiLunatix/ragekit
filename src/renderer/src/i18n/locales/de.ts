@@ -234,6 +234,8 @@ export const de: Dict = {
     copied: 'Kopiert nach {rel}',
     replaced: 'Datei ersetzt.',
     root: 'Wurzel',
+    ngNote:
+      'NG-verschlüsseltes Vanilla-Archiv. Zum Lesen werden die NG-Schlüssel des Spiels benötigt, noch nicht unterstützt — nutze dafür OpenIV. Archive im mods/-Ordner und Add-ons öffnen normal.',
     name: 'Name',
     type: 'Typ',
     size: 'Größe',

@@ -23,14 +23,17 @@ function candidateExe(gamePath: string): string | null {
   return null
 }
 
-/** Scan GTA5.exe for the AES key; cache it in the store keyed by exe size. */
-export async function loadAesKey(gamePath: string): Promise<Buffer> {
+let scanPromise: Promise<Buffer | null> | null = null
+
+/** Scan GTA5.exe for the AES key; cache it, and never block the event loop. */
+export async function loadAesKey(gamePath: string): Promise<Buffer | null> {
   if (cachedKey) return cachedKey
 
   const exe = candidateExe(gamePath)
-  if (!exe) throw new Error('GTA5.exe not found — cannot read encrypted RPF archives.')
+  if (!exe) return null
 
-  const stat = await fs.stat(exe)
+  const stat = await fs.stat(exe).catch(() => null)
+  if (!stat) return null
   const cacheTag = `${stat.size}`
   const saved = store.get('rpfAesKey') as { tag: string; hex: string } | undefined
   if (saved?.tag === cacheTag) {
@@ -38,18 +41,26 @@ export async function loadAesKey(gamePath: string): Promise<Buffer> {
     return cachedKey
   }
 
-  const buf = await fs.readFile(exe)
-  for (let i = 0; i + 32 <= buf.length; i++) {
-    const window = buf.subarray(i, i + 32)
-    if (createHash('sha1').update(window).digest('hex') === GTA5_AES_KEY_SHA1) {
-      cachedKey = Buffer.from(window)
-      store.set('rpfAesKey', { tag: cacheTag, hex: cachedKey.toString('hex') })
-      return cachedKey
+  // De-dupe concurrent callers.
+  if (scanPromise) return scanPromise
+  scanPromise = (async () => {
+    const buf = await fs.readFile(exe)
+    const yieldEvery = 400_000
+    for (let i = 0; i + 32 <= buf.length; i++) {
+      if (i % yieldEvery === 0) await new Promise((r) => setImmediate(r))
+      if (createHash('sha1').update(buf.subarray(i, i + 32)).digest('hex') === GTA5_AES_KEY_SHA1) {
+        cachedKey = Buffer.from(buf.subarray(i, i + 32))
+        store.set('rpfAesKey', { tag: cacheTag, hex: cachedKey.toString('hex') })
+        return cachedKey
+      }
     }
+    return null
+  })()
+  try {
+    return await scanPromise
+  } finally {
+    scanPromise = null
   }
-  throw new Error(
-    'Could not locate the RPF key in GTA5.exe. Enhanced edition uses different encryption and is not supported yet.',
-  )
 }
 
 function aesRound(data: Buffer, key: Buffer, mode: 'decrypt' | 'encrypt'): Buffer {

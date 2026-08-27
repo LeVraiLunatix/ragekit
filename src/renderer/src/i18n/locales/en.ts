@@ -232,6 +232,8 @@ export const en = {
     copied: 'Copied to {rel}',
     replaced: 'File replaced.',
     root: 'root',
+    ngNote:
+      'This is an NG-encrypted vanilla archive. Reading it needs the game’s NG keys, which is not supported yet — use OpenIV for these. Mods-folder and add-on archives open fine.',
     name: 'Name',
     type: 'Type',
     size: 'Size',

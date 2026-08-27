@@ -234,6 +234,8 @@ export const es: Dict = {
     copied: 'Copiado a {rel}',
     replaced: 'Archivo reemplazado.',
     root: 'raíz',
+    ngNote:
+      'Archivo vanilla cifrado con NG. Leerlo requiere las claves NG del juego, aún no soportado — usa OpenIV para estos. Los archivos de la carpeta mods/ y los add-on se abren con normalidad.',
     name: 'Nombre',
     type: 'Tipo',
     size: 'Tamaño',

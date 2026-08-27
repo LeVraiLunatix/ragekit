@@ -235,6 +235,8 @@ export const fr: Dict = {
     copied: 'Copié vers {rel}',
     replaced: 'Fichier remplacé.',
     root: 'racine',
+    ngNote:
+      'Archive vanilla chiffrée en NG. La lire demande les clés NG du jeu, pas encore supporté — utilise OpenIV pour celles-ci. Les archives du dossier mods/ et les add-on s’ouvrent normalement.',
     name: 'Nom',
     type: 'Type',
     size: 'Taille',

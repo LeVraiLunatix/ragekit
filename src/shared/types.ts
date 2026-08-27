@@ -125,26 +125,35 @@ export interface ImportResult {
 
 export type RpfEncryption = 'NONE' | 'OPEN' | 'AES' | 'NG' | 'UNKNOWN'
 
-export interface RpfArchiveInfo {
-  rel: string
-  sizeBytes: number
-  encryption: RpfEncryption
-  inMods: boolean
-}
+export type NodeCategory =
+  | 'folder'
+  | 'application'
+  | 'dll'
+  | 'rpf'
+  | 'text'
+  | 'textdata'
+  | 'binary'
+  | 'resource'
+  | 'other'
 
-export interface RpfNode {
+export interface ExplorerNode {
   name: string
-  path: string
-  isDir: boolean
-  isResource: boolean
-  isNestedRpf: boolean
+  /** Full slash path from the game root; may cross into .rpf archives. */
+  vpath: string
+  kind: 'dir' | 'file' | 'rpf'
   size: number
+  category: NodeCategory
+  typeLabel: string
 }
 
-export interface RpfOpened {
-  encryption: RpfEncryption
+export interface ExplorerListing {
+  vpath: string
+  mode: 'fs' | 'rpf'
   writable: boolean
-  nodes: RpfNode[]
+  encryption?: RpfEncryption
+  /** 'ng' for NG-encrypted vanilla archives, or an error string. */
+  error?: string
+  nodes: ExplorerNode[]
 }
 
 export interface SnapshotEntry {
