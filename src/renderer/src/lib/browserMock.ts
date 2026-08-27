@@ -117,7 +117,7 @@ if (typeof window !== 'undefined' && !window.api) {
           ] }
         }
         if (vpath === 'common.rpf') {
-          return { vpath, mode: 'rpf' as const, writable: false, error: 'ng', nodes: [] }
+          return { vpath, mode: 'rpf' as const, writable: false, error: 'ng-nokeys', nodes: [] }
         }
         return { vpath, mode: 'rpf' as const, writable: vpath.startsWith('mods/'), encryption: 'OPEN' as const, nodes: [
           n('data', 'dir', 0, 'folder', 'Folder'),
@@ -130,6 +130,11 @@ if (typeof window !== 'undefined' && !window.api) {
       replace: async () => true,
       copyToMods: async (v: string) => `mods/${v}`,
       showInFolder: async () => {},
+    },
+    ng: {
+      status: async () => ({ path: '', loaded: false }),
+      set: async () => ({ path: '', loaded: false }),
+      clear: async () => {},
     },
     remote: {
       fetch: async (url: string) => ({

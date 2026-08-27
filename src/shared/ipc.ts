@@ -56,6 +56,9 @@ export const IPC = {
   rpfReplace: 'rpf:replace',
   rpfCopyToMods: 'rpf:copyToMods',
   rpfShowInFolder: 'rpf:showInFolder',
+  ngStatus: 'ng:status',
+  ngSet: 'ng:set',
+  ngClear: 'ng:clear',
 
   // GTA5-Mods.com
   remoteFetch: 'remote:fetch',

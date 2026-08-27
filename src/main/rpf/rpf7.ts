@@ -1,13 +1,19 @@
 import { promises as fs } from 'node:fs'
+import { basename } from 'node:path'
 import { deflateRawSync, inflateRawSync } from 'node:zlib'
 import type { RpfEncryption } from '@shared/types'
 import { aesDecrypt, aesEncrypt } from './crypto'
+import { decryptNg, type NgKeys } from './ng'
 
 const RPF7_MAGIC = 0x52504637
 const DIR_IDENT = 0x7fffff00
 const SECTOR = 512
 
 export type { RpfEncryption }
+export interface RpfKeys {
+  aes: Buffer | null
+  ng: NgKeys | null
+}
 
 function encName(v: number): RpfEncryption {
   if (v === 0 || v === 0x4e4f4e45) return 'NONE'
@@ -45,7 +51,7 @@ export class Rpf7 {
     readonly namesLength: number,
     private entriesBuf: Buffer, // decrypted, entryCount*16
     private namesBuf: Buffer, // decrypted
-    private key: Buffer | null,
+    private keys: RpfKeys,
     readonly entries: RpfEntry[],
     private byPath: Map<string, RpfEntry>,
   ) {}
@@ -55,13 +61,15 @@ export class Rpf7 {
   }
 
   get writable(): boolean {
-    return this.source.kind === 'file'
+    return this.source.kind === 'file' && this.encryption !== 'NG'
   }
 
   private static parse(
     head16: Buffer,
     toc: Buffer,
-    key: Buffer | null,
+    keys: RpfKeys,
+    ngName: string,
+    ngLen: number,
     label: string,
   ): {
     encryption: RpfEncryption
@@ -76,15 +84,18 @@ export class Rpf7 {
     const entryCount = head16.readUInt32LE(4)
     const namesLength = head16.readUInt32LE(8)
     const encryption = encName(head16.readUInt32LE(12))
-    if (encryption === 'NG' || encryption === 'UNKNOWN') {
-      throw new Error(`RPF encryption "${encryption}" is not supported.`)
-    }
+    if (encryption === 'UNKNOWN') throw new Error(`RPF encryption "${encryption}" is not supported.`)
+
     const tocLen = entryCount * 16 + namesLength
-    let plain: Buffer = toc.subarray(0, tocLen)
+    let plain: Buffer = Buffer.from(toc.subarray(0, tocLen))
     if (encryption === 'AES') {
-      if (!key) throw new Error('This RPF is AES-encrypted but no key was provided.')
-      plain = aesDecrypt(Buffer.from(plain), key)
+      if (!keys.aes) throw new Error('This RPF is AES-encrypted but no key was provided.')
+      plain = aesDecrypt(plain, keys.aes)
+    } else if (encryption === 'NG') {
+      if (!keys.ng) throw new Error('RPF encryption "NG" is not supported.') // caller maps to ng-nokeys
+      plain = decryptNg(plain, ngName, ngLen, keys.ng)
     }
+
     const entriesBuf = Buffer.from(plain.subarray(0, entryCount * 16))
     const namesBuf = Buffer.from(plain.subarray(entryCount * 16, tocLen))
     if (entryCount === 0 || entriesBuf.readUInt32LE(4) !== DIR_IDENT) {
@@ -94,16 +105,17 @@ export class Rpf7 {
     return { encryption, entryCount, namesLength, entriesBuf, namesBuf, entries, byPath }
   }
 
-  static async open(filePath: string, key: Buffer | null): Promise<Rpf7> {
+  static async open(filePath: string, keys: RpfKeys): Promise<Rpf7> {
     const fd = await fs.open(filePath, 'r')
     try {
+      const size = (await fd.stat()).size
       const head16 = Buffer.alloc(16)
       await fd.read(head16, 0, 16, 0)
       const entryCount = head16.readUInt32LE(4)
       const namesLength = head16.readUInt32LE(8)
       const toc = Buffer.alloc(entryCount * 16 + namesLength)
       await fd.read(toc, 0, toc.length, 16)
-      const p = Rpf7.parse(head16, toc, key, filePath)
+      const p = Rpf7.parse(head16, toc, keys, basename(filePath), size, filePath)
       return new Rpf7(
         { kind: 'file', path: filePath },
         p.encryption,
@@ -111,7 +123,7 @@ export class Rpf7 {
         p.namesLength,
         p.entriesBuf,
         p.namesBuf,
-        key,
+        keys,
         p.entries,
         p.byPath,
       )
@@ -120,12 +132,18 @@ export class Rpf7 {
     }
   }
 
-  static fromBuffer(data: Buffer, key: Buffer | null, label: string): Rpf7 {
+  static fromBuffer(
+    data: Buffer,
+    keys: RpfKeys,
+    label: string,
+    ngName: string,
+    ngLen: number,
+  ): Rpf7 {
     const head16 = data.subarray(0, 16)
     const entryCount = head16.readUInt32LE(4)
     const namesLength = head16.readUInt32LE(8)
     const toc = data.subarray(16, 16 + entryCount * 16 + namesLength)
-    const p = Rpf7.parse(head16, toc, key, label)
+    const p = Rpf7.parse(head16, toc, keys, ngName, ngLen, label)
     return new Rpf7(
       { kind: 'buffer', data, label },
       p.encryption,
@@ -133,7 +151,7 @@ export class Rpf7 {
       p.namesLength,
       p.entriesBuf,
       p.namesBuf,
-      key,
+      keys,
       p.entries,
       p.byPath,
     )
@@ -163,8 +181,15 @@ export class Rpf7 {
     const readLen = e.sizeOnDisk > 0 ? e.sizeOnDisk : e.uncompressedSize
     let data: Buffer = await this.readRaw(e.offset, readLen)
     if (e.encrypted) {
-      if (!this.key) throw new Error('File is encrypted but no key is available.')
-      data = aesDecrypt(data, this.key)
+      if (this.encryption === 'NG') {
+        if (!this.keys.ng) throw new Error('File is NG-encrypted but no key file is loaded.')
+        const alignedLen = readLen & ~15
+        const dec = decryptNg(data.subarray(0, alignedLen), e.name, readLen, this.keys.ng)
+        data = Buffer.concat([dec, data.subarray(alignedLen)])
+      } else {
+        if (!this.keys.aes) throw new Error('File is encrypted but no key is available.')
+        data = aesDecrypt(data, this.keys.aes)
+      }
     }
     if (e.sizeOnDisk > 0) data = inflateRawSync(data.subarray(0, e.sizeOnDisk))
     return data.subarray(0, e.uncompressedSize)
@@ -172,8 +197,15 @@ export class Rpf7 {
 
   /** Open a `.rpf` nested inside this one (read-only). */
   async openNested(innerPath: string): Promise<Rpf7> {
+    const e = this.get(innerPath)
     const bytes = await this.readFile(innerPath)
-    return Rpf7.fromBuffer(bytes, this.key, `${this.label}/${innerPath}`)
+    return Rpf7.fromBuffer(
+      bytes,
+      this.keys,
+      `${this.label}/${innerPath}`,
+      e?.name ?? innerPath,
+      e?.uncompressedSize ?? bytes.length,
+    )
   }
 
   /**
@@ -211,17 +243,21 @@ export class Rpf7 {
       })
       const plainToc = Buffer.concat([newEntries, this.namesBuf])
       let toc: Buffer = plainToc
-      if (this.encryption === 'AES') {
-        if (!this.key) throw new Error('Cannot re-encrypt TOC without the key.')
-        toc = aesEncrypt(plainToc, this.key)
-        // Verify the round-trip before touching the file.
-        const back = aesDecrypt(toc, this.key)
+      // For AES *and* NG we write the TOC back AES-encrypted (we can't NG-encrypt).
+      let rewriteHeaderToAes = false
+      if (this.encryption === 'AES' || this.encryption === 'NG') {
+        if (!this.keys.aes) {
+          throw new Error('Editing this archive needs the AES key from GTA5.exe.')
+        }
+        toc = aesEncrypt(plainToc, this.keys.aes)
+        const back = aesDecrypt(toc, this.keys.aes)
         if (
           back.readUInt32LE(4) !== DIR_IDENT ||
           !back.subarray(0, plainToc.length).equals(plainToc)
         ) {
           throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
         }
+        rewriteHeaderToAes = this.encryption === 'NG'
       }
 
       // Only now mutate the archive: append data, then overwrite the TOC.
@@ -229,6 +265,11 @@ export class Rpf7 {
       payload.copy(padded)
       await fd.write(padded, 0, padded.length, newOffset)
       await fd.write(toc, 0, toc.length, 16)
+      if (rewriteHeaderToAes) {
+        const enc = Buffer.alloc(4)
+        enc.writeUInt32LE(0x0ffffff9, 0) // AES
+        await fd.write(enc, 0, 4, 12)
+      }
 
       newEntries.copy(this.entriesBuf)
       e.sizeOnDisk = sizeOnDisk

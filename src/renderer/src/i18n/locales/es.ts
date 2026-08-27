@@ -186,6 +186,13 @@ export const es: Dict = {
     detectFail: 'No se pudo detectar GTA V automáticamente. Usa «Examinar» para seleccionar la carpeta.',
     language: 'Idioma',
     languageSub: 'Idioma de la interfaz.',
+    ngTitle: 'Claves NG (experimental)',
+    ngSub: 'Necesarias para abrir los archivos vanilla cifrados con NG (update.rpf, common.rpf, x64*.rpf). Apunta Ragekit al «Key.dat» de CodeWalker o a un volcado de claves NG de GTA5 equivalente.',
+    ngLoaded: 'Cargadas',
+    ngNone: 'Sin archivo de claves',
+    ngLocate: 'Elegir archivo de claves…',
+    ngClear: 'Borrar',
+    ngNote: 'El descifrado NG es experimental. Si un archivo no se decodifica tras cargar las claves, la implementación de las rondas aún debe ajustarse con una referencia — no se escribe nada.',
     note: 'Los mods se copian en una biblioteca interna, así que puedes borrar la descarga original tras importarla. Los archivos del juego sobrescritos se respaldan y se restauran automáticamente al desactivar o quitar un mod.',
   },
   online: {
@@ -235,7 +242,10 @@ export const es: Dict = {
     replaced: 'Archivo reemplazado.',
     root: 'raíz',
     ngNote:
-      'Archivo vanilla cifrado con NG. Leerlo requiere las claves NG del juego, aún no soportado — usa OpenIV para estos. Los archivos de la carpeta mods/ y los add-on se abren con normalidad.',
+      'Archivo vanilla cifrado con NG. Carga un archivo de claves NG en Ajustes para abrirlo, o usa OpenIV. Los archivos de la carpeta mods/ y los add-on se abren sin claves.',
+    ngNoKeys: 'Archivo cifrado con NG. Define un archivo de claves NG en Ajustes para abrirlo (o usa OpenIV).',
+    ngFailed:
+      'Claves NG cargadas pero este archivo no se decodifica — la ronda NG experimental debe ajustarse con una referencia.',
     name: 'Nombre',
     type: 'Tipo',
     size: 'Tamaño',

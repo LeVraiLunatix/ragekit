@@ -429,9 +429,17 @@ export function ArchivesPage(): ReactNode {
               <div className="flex h-full items-center justify-center">
                 <Spinner />
               </div>
-            ) : listing?.error === 'ng' ? (
+            ) : listing?.error === 'ng' ||
+              listing?.error === 'ng-nokeys' ||
+              listing?.error === 'ng-failed' ? (
               <div className="flex h-full items-center justify-center px-8 text-center text-[13px] text-ink-faint">
-                {t('archives.ngNote')}
+                {t(
+                  listing.error === 'ng-nokeys'
+                    ? 'archives.ngNoKeys'
+                    : listing.error === 'ng-failed'
+                      ? 'archives.ngFailed'
+                      : 'archives.ngNote',
+                )}
               </div>
             ) : listing?.error ? (
               <div className="flex h-full items-center justify-center px-8 text-center text-[13px] text-bad">

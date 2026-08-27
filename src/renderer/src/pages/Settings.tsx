@@ -6,6 +6,7 @@ import {
   XCircle,
   ShieldCheck,
   ScanLine,
+  KeyRound,
 } from 'lucide-react'
 import type { IntegrityReport, LanguageCode } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -13,6 +14,66 @@ import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, LANG_LABEL } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
+
+function NgKeysCard(): ReactNode {
+  const { t } = useI18n()
+  const [status, setStatus] = useState<{ path: string; loaded: boolean } | null>(null)
+
+  useEffect(() => {
+    void window.api.ng.status().then(setStatus)
+  }, [])
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="flex items-center gap-2">
+        <KeyRound className="size-4 text-brand" />
+        <h2 className="text-sm font-semibold">{t('settings.ngTitle')}</h2>
+        {status &&
+          (status.loaded ? (
+            <Badge tone="good">
+              <CheckCircle2 className="size-3" /> {t('settings.ngLoaded')}
+            </Badge>
+          ) : (
+            <Badge tone="neutral">{t('settings.ngNone')}</Badge>
+          ))}
+      </div>
+      <p className="mt-2 text-[12px] leading-relaxed text-ink-faint">{t('settings.ngSub')}</p>
+      {status?.path && (
+        <p className="mt-2 break-all rounded-lg border border-line bg-bg px-3 py-2 font-mono text-[11.5px] text-ink-soft">
+          {status.path}
+        </p>
+      )}
+      <div className="mt-3 flex gap-2">
+        <Button
+          size="sm"
+          onClick={async () => {
+            try {
+              setStatus(await window.api.ng.set())
+            } catch (err) {
+              alert(err instanceof Error ? err.message : String(err))
+            }
+          }}
+        >
+          <KeyRound className="size-4" />
+          {t('settings.ngLocate')}
+        </Button>
+        {status?.path && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              await window.api.ng.clear()
+              setStatus({ path: '', loaded: false })
+            }}
+          >
+            {t('settings.ngClear')}
+          </Button>
+        )}
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">{t('settings.ngNote')}</p>
+    </Card>
+  )
+}
 
 function IntegrityCard(): ReactNode {
   const { t, relative } = useI18n()
@@ -209,6 +270,7 @@ export function SettingsPage(): ReactNode {
       </Card>
 
       <IntegrityCard />
+      <NgKeysCard />
 
       <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">{t('settings.note')}</p>
     </Page>

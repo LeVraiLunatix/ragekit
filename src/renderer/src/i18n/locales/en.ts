@@ -184,6 +184,13 @@ export const en = {
     detectFail: 'Could not auto-detect GTA V. Use "Browse" to select the folder.',
     language: 'Language',
     languageSub: 'Interface language.',
+    ngTitle: 'NG keys (experimental)',
+    ngSub: 'Needed to open the vanilla NG-encrypted archives (update.rpf, common.rpf, x64*.rpf). Point Ragekit at CodeWalker\'s "Key.dat" or an equivalent GTA5 NG key dump.',
+    ngLoaded: 'Loaded',
+    ngNone: 'No key file set',
+    ngLocate: 'Locate key file…',
+    ngClear: 'Clear',
+    ngNote: 'The NG decryption is experimental. If an archive fails to decode after loading keys, the round implementation still needs tuning against a reference — nothing is written.',
     note: 'Mods are copied into an internal library, so the original download can be deleted after importing. Overwritten game files are backed up and restored automatically when you disable or remove a mod.',
   },
   online: {
@@ -233,7 +240,10 @@ export const en = {
     replaced: 'File replaced.',
     root: 'root',
     ngNote:
-      'This is an NG-encrypted vanilla archive. Reading it needs the game’s NG keys, which is not supported yet — use OpenIV for these. Mods-folder and add-on archives open fine.',
+      'This is an NG-encrypted vanilla archive. Load an NG key file in Settings to open it, or use OpenIV. Mods-folder and add-on archives open without keys.',
+    ngNoKeys: 'NG-encrypted archive. Set an NG key file in Settings to open it (or use OpenIV).',
+    ngFailed:
+      'NG keys loaded but this archive did not decode — the experimental NG round needs tuning against a reference.',
     name: 'Name',
     type: 'Type',
     size: 'Size',

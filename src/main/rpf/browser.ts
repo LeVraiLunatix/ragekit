@@ -1,9 +1,15 @@
 import { promises as fs } from 'node:fs'
 import { join, dirname, relative, sep, basename } from 'node:path'
 import { loadAesKey } from './crypto'
-import { Rpf7, type RpfEntry } from './rpf7'
+import { Rpf7, type RpfEntry, type RpfKeys } from './rpf7'
+import { loadNgKeys, ngKeysPath } from './ngkeys'
 import type { ExplorerListing, ExplorerNode, NodeCategory } from '@shared/types'
 import { ensureDir } from '../mods/fsutil'
+
+async function rpfKeys(gamePath: string): Promise<RpfKeys> {
+  const [aes, ng] = await Promise.all([loadAesKey(gamePath), loadNgKeys()])
+  return { aes, ng }
+}
 
 const isNestedRpf = (e: RpfEntry): boolean =>
   !e.isDir && e.name.toLowerCase().endsWith('.rpf')
@@ -112,19 +118,16 @@ export async function explore(gamePath: string, vpath: string): Promise<Explorer
   }
 
   // inside an .rpf
-  const key = await loadAesKey(gamePath)
+  const keys = await rpfKeys(gamePath)
   let rpf: Rpf7
   try {
-    rpf = await Rpf7.open(loc.rpfFsPath, key)
+    rpf = await Rpf7.open(loc.rpfFsPath, keys)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return {
-      vpath,
-      mode: 'rpf',
-      writable: false,
-      error: /"NG"/.test(msg) ? 'ng' : msg,
-      nodes: [],
-    }
+    let error = msg
+    if (/"NG"/.test(msg)) error = ngKeysPath() ? 'ng' : 'ng-nokeys'
+    else if (/did not decode/.test(msg) && /NG/.test(msg)) error = 'ng-failed'
+    return { vpath, mode: 'rpf', writable: false, error, nodes: [] }
   }
 
   let innerDir = ''
@@ -199,8 +202,7 @@ async function openToFile(
 
   if (loc.mode === 'fs') return { fsFile: join(loc.fsDir, name) }
 
-  const key = await loadAesKey(gamePath)
-  let rpf = await Rpf7.open(loc.rpfFsPath, key)
+  let rpf = await Rpf7.open(loc.rpfFsPath, await rpfKeys(gamePath))
   let innerDir = ''
   let nested = false
   for (const seg of loc.rest) {

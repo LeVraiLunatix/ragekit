@@ -186,6 +186,13 @@ export const de: Dict = {
     detectFail: 'GTA V konnte nicht automatisch erkannt werden. Nutze „Durchsuchen“, um den Ordner auszuwählen.',
     language: 'Sprache',
     languageSub: 'Sprache der Oberfläche.',
+    ngTitle: 'NG-Schlüssel (experimentell)',
+    ngSub: 'Nötig, um die NG-verschlüsselten Vanilla-Archive (update.rpf, common.rpf, x64*.rpf) zu öffnen. Zeige Ragekit auf CodeWalkers „Key.dat“ oder einen gleichwertigen GTA5-NG-Schlüssel-Dump.',
+    ngLoaded: 'Geladen',
+    ngNone: 'Keine Schlüsseldatei gesetzt',
+    ngLocate: 'Schlüsseldatei wählen…',
+    ngClear: 'Löschen',
+    ngNote: 'Die NG-Entschlüsselung ist experimentell. Decodiert ein Archiv nach dem Laden der Schlüssel nicht, muss die Rundenimplementierung noch an einer Referenz abgeglichen werden — es wird nichts geschrieben.',
     note: 'Mods werden in eine interne Bibliothek kopiert, du kannst den ursprünglichen Download nach dem Import also löschen. Überschriebene Spieldateien werden gesichert und automatisch wiederhergestellt, wenn du einen Mod deaktivierst oder entfernst.',
   },
   online: {
@@ -235,7 +242,10 @@ export const de: Dict = {
     replaced: 'Datei ersetzt.',
     root: 'Wurzel',
     ngNote:
-      'NG-verschlüsseltes Vanilla-Archiv. Zum Lesen werden die NG-Schlüssel des Spiels benötigt, noch nicht unterstützt — nutze dafür OpenIV. Archive im mods/-Ordner und Add-ons öffnen normal.',
+      'NG-verschlüsseltes Vanilla-Archiv. Lade in den Einstellungen eine NG-Schlüsseldatei, um es zu öffnen, oder nutze OpenIV. Archive im mods/-Ordner und Add-ons öffnen ohne Schlüssel.',
+    ngNoKeys: 'NG-verschlüsseltes Archiv. Setze in den Einstellungen eine NG-Schlüsseldatei, um es zu öffnen (oder nutze OpenIV).',
+    ngFailed:
+      'NG-Schlüssel geladen, aber dieses Archiv decodiert nicht — die experimentelle NG-Runde muss an einer Referenz abgeglichen werden.',
     name: 'Name',
     type: 'Typ',
     size: 'Größe',

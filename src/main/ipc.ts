@@ -29,6 +29,7 @@ import {
   copyArchiveToMods,
   archiveBasename,
 } from './rpf/browser'
+import { ngKeysPath, setNgKeysPath, clearNgKeys, loadNgKeys } from './rpf/ngkeys'
 import { join } from 'node:path'
 import {
   listProfiles,
@@ -261,6 +262,24 @@ export function registerIpc(): void {
     if (!game?.valid) return
     shell.showItemInFolder(join(game.path, vpath))
   })
+
+  ipcMain.handle(IPC.ngStatus, async () => {
+    const path = ngKeysPath()
+    return { path, loaded: !!path && !!(await loadNgKeys()) }
+  })
+
+  ipcMain.handle(IPC.ngSet, async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const res = await dialog.showOpenDialog(win!, {
+      title: 'Select an NG key file (CodeWalker Key.dat or equivalent)',
+      properties: ['openFile'],
+    })
+    if (res.canceled || !res.filePaths[0]) return { path: ngKeysPath(), loaded: false }
+    await setNgKeysPath(res.filePaths[0])
+    return { path: res.filePaths[0], loaded: true }
+  })
+
+  ipcMain.handle(IPC.ngClear, () => clearNgKeys())
 
   ipcMain.handle(IPC.remoteFetch, (_e, url: string) => fetchModInfo(url))
 

@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { loadAesKey } from './crypto'
 import { Rpf7 } from './rpf7'
+import { loadNgKeys } from './ngkeys'
 import { walk, ensureDir, copyFile, pathExists, removeFileAndPrune } from '../mods/fsutil'
 
 const DLCLIST_INNER = 'common/data/dlclist.xml'
@@ -60,9 +61,9 @@ async function editDlclist(
   gamePath: string,
   mutate: (xml: string) => string | null,
 ): Promise<void> {
-  const key = await loadAesKey(gamePath)
+  const [aes, ng] = await Promise.all([loadAesKey(gamePath), loadNgKeys()])
   const rpfPath = join(gamePath, 'mods', 'update', 'update.rpf')
-  const rpf = await Rpf7.open(rpfPath, key)
+  const rpf = await Rpf7.open(rpfPath, { aes, ng })
   const xml = (await rpf.readFile(DLCLIST_INNER)).toString('utf8')
   const next = mutate(xml)
   if (next == null || next === xml) return

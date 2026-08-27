@@ -16,6 +16,8 @@ interface Schema {
   vanillaSnapshot: VanillaSnapshot | null
   /** Cached GTA5.exe RPF AES key: { tag: <exe size>, hex } */
   rpfAesKey: { tag: string; hex: string } | null
+  /** User-provided NG key file (CodeWalker Key.dat or equivalent). */
+  ngKeysPath: string
 }
 
 const defaults: Schema = {
@@ -34,6 +36,7 @@ const defaults: Schema = {
   onlineParkedDir: '',
   vanillaSnapshot: null,
   rpfAesKey: null,
+  ngKeysPath: '',
 }
 
 export const store = new Store<Schema>({ defaults, name: 'gtav-mod-manager' })

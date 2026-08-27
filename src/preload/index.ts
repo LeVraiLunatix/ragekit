@@ -91,6 +91,11 @@ const api = {
     showInFolder: (vpath: string): Promise<void> =>
       ipcRenderer.invoke(IPC.rpfShowInFolder, vpath),
   },
+  ng: {
+    status: (): Promise<{ path: string; loaded: boolean }> => ipcRenderer.invoke(IPC.ngStatus),
+    set: (): Promise<{ path: string; loaded: boolean }> => ipcRenderer.invoke(IPC.ngSet),
+    clear: (): Promise<void> => ipcRenderer.invoke(IPC.ngClear),
+  },
   remote: {
     fetch: (url: string): Promise<RemoteMod> => ipcRenderer.invoke(IPC.remoteFetch, url),
     install: (remote: RemoteMod): Promise<ImportResult> =>
