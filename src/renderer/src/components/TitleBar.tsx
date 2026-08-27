@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import { Gamepad2, Globe, Loader2, ShieldCheck } from 'lucide-react'
+import { Globe, Loader2, ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { Badge } from './ui'
+import { Logo } from './Logo'
 
 function OnlineSafeToggle(): ReactNode {
   const { t } = useI18n()
@@ -56,8 +57,8 @@ export function TitleBar(): ReactNode {
 
   return (
     <header className="drag-region flex h-9 shrink-0 items-center gap-2 border-b border-line bg-bg px-3">
-      <Gamepad2 className="size-4 text-brand" />
-      <span className="text-[13px] font-semibold tracking-tight">GTAV Mod Manager</span>
+      <Logo size={17} />
+      <span className="text-[13px] font-semibold tracking-tight">Ragekit</span>
       <div className="no-drag ml-2">
         {game?.valid ? (
           <Badge tone="good">{game.platform}</Badge>

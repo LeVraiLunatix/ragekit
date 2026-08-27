@@ -33,7 +33,7 @@ export const de: Dict = {
   onboarding: {
     stepOf: 'Schritt {current} von {total}',
     welcome: {
-      title: 'GTAV Mod Manager',
+      title: 'Ragekit',
       subtitle:
         'Installiere Mods für den GTA-V-Story-Modus, schalte sie ein und aus und deinstalliere sie jedes Mal sauber.',
       cta: 'Loslegen',
@@ -66,7 +66,7 @@ export const de: Dict = {
     done: {
       title: 'Alles bereit',
       subtitle: 'Deine Bibliothek ist bereit. Zieh eine .zip oder .oiv herein, um deinen ersten Mod zu installieren.',
-      cta: 'GTAV Mod Manager öffnen',
+      cta: 'Ragekit öffnen',
     },
   },
   library: {

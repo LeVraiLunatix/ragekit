@@ -1,7 +1,8 @@
-# GTAV Mod Manager
+# Ragekit
 
-A modern desktop mod manager for **Grand Theft Auto V (single-player / Story Mode)**.
-Import mods once, toggle them on and off, and get a clean uninstall every time.
+A modern desktop **mod manager + RPF toolkit** for **Grand Theft Auto V
+(single-player / Story Mode)**. Import mods once, toggle them on and off, browse
+the game's `.rpf` archives OpenIV-style, and get a clean uninstall every time.
 
 > ⚠️ Story Mode only. Never launch GTA Online with Script Hook V or modified game
 > files present — it can get your Rockstar account banned. Use **online-safe mode**

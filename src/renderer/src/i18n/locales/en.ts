@@ -32,7 +32,7 @@ export const en = {
   onboarding: {
     stepOf: 'Step {current} of {total}',
     welcome: {
-      title: 'GTAV Mod Manager',
+      title: 'Ragekit',
       subtitle:
         'Install mods for GTA V Story Mode, toggle them on and off, and get a clean uninstall every time.',
       cta: 'Get started',
@@ -64,7 +64,7 @@ export const en = {
     done: {
       title: "You're all set",
       subtitle: 'Your library is ready. Drop in a .zip or .oiv to install your first mod.',
-      cta: 'Open GTAV Mod Manager',
+      cta: 'Open Ragekit',
     },
   },
   library: {

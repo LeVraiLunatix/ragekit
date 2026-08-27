@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Gamepad2,
   FolderSearch,
   FolderOpen,
   CheckCircle2,
@@ -14,6 +13,7 @@ import type { LanguageCode } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, LANG_LABEL } from '@/i18n'
 import { Button } from '@/components/ui'
+import { Logo } from '@/components/Logo'
 import { cn } from '@/lib/utils'
 import { StepShell } from './StepShell'
 
@@ -46,17 +46,17 @@ function WelcomeStep({ onNext }: { onNext: () => void }): ReactNode {
       primary={{ label: t('onboarding.welcome.cta'), onClick: onNext }}
     >
       <motion.div
-        className="relative mx-auto my-2 grid size-24 place-items-center rounded-2xl bg-gradient-to-br from-brand/25 to-brand/5"
+        className="relative mx-auto my-2 grid size-24 place-items-center"
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 220, damping: 18 }}
       >
         <motion.span
-          className="absolute inset-0 rounded-2xl ring-1 ring-brand/40"
-          animate={{ scale: [1, 1.12, 1], opacity: [0.6, 0, 0.6] }}
+          className="absolute inset-1 rounded-2xl ring-1 ring-brand/40"
+          animate={{ scale: [1, 1.14, 1], opacity: [0.5, 0, 0.5] }}
           transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <Gamepad2 className="size-11 text-brand-hi" />
+        <Logo size={80} />
       </motion.div>
     </StepShell>
   )

@@ -33,7 +33,7 @@ export const es: Dict = {
   onboarding: {
     stepOf: 'Paso {current} de {total}',
     welcome: {
-      title: 'GTAV Mod Manager',
+      title: 'Ragekit',
       subtitle:
         'Instala mods para el Modo Historia de GTA V, actívalos y desactívalos, y consigue una desinstalación limpia siempre.',
       cta: 'Empezar',
@@ -66,7 +66,7 @@ export const es: Dict = {
     done: {
       title: 'Todo listo',
       subtitle: 'Tu biblioteca está lista. Suelta un .zip o .oiv para instalar tu primer mod.',
-      cta: 'Abrir GTAV Mod Manager',
+      cta: 'Abrir Ragekit',
     },
   },
   library: {

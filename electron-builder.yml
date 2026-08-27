@@ -1,5 +1,5 @@
-appId: com.lunatix.gtavmodmanager
-productName: GTAV Mod Manager
+appId: one.ragekit.app
+productName: Ragekit
 copyright: Copyright © 2026 LeVraiLunatix
 directories:
   buildResources: build
@@ -10,6 +10,7 @@ files:
 asarUnpack:
   - node_modules/node-unrar-js/dist/js/**
 win:
+  icon: build/icon.png
   target:
     - target: nsis
       arch:
@@ -21,4 +22,4 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: GTAV Mod Manager
+  shortcutName: Ragekit
