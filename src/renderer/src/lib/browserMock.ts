@@ -44,7 +44,7 @@ if (typeof window !== 'undefined' && !window.api) {
       list: async () => [],
       import: async () => [],
       importPaths: async () => [],
-      plan: async () => ({ modId: '', kind: 'dropin', files: [], warnings: [], missingDependencies: [] }),
+      plan: async () => ({ modId: '', kind: 'dropin', files: [], warnings: [], missingDependencies: [], dlcPacks: [] }),
       install: async () => ({ ...mockMod }),
       uninstall: async () => ({ ...mockMod }),
       setEnabled: async () => ({ ...mockMod }),
@@ -83,7 +83,7 @@ if (typeof window !== 'undefined' && !window.api) {
       }),
       install: async () => ({
         mod: { ...mockMod },
-        plan: { modId: 'mock', kind: 'dropin' as const, files: [], warnings: [], missingDependencies: [] },
+        plan: { modId: 'mock', kind: 'dropin' as const, files: [], warnings: [], missingDependencies: [], dlcPacks: [] },
       }),
       checkUpdates: async () => [],
     },

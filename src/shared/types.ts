@@ -42,6 +42,8 @@ export interface InstallPlan {
   warnings: string[]
   /** Dependencies the plan needs that are not currently satisfied. */
   missingDependencies: DependencyId[]
+  /** Prebuilt add-on DLC packs to register in dlclist.xml (RPF write). */
+  dlcPacks: string[]
 }
 
 export type DependencyId =
@@ -81,6 +83,8 @@ export interface Mod {
   sourceUrl?: string
   /** "Last updated" timestamp of the mod page at install time. */
   remoteUpdatedAt?: string
+  /** Add-on DLC pack names registered in dlclist.xml for this mod. */
+  dlcPacks?: string[]
 }
 
 export interface Profile {

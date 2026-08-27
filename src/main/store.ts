@@ -14,6 +14,8 @@ interface Schema {
   /** Absolute path of the folder those files were parked in (set on enable). */
   onlineParkedDir: string
   vanillaSnapshot: VanillaSnapshot | null
+  /** Cached GTA5.exe RPF AES key: { tag: <exe size>, hex } */
+  rpfAesKey: { tag: string; hex: string } | null
 }
 
 const defaults: Schema = {
@@ -31,6 +33,7 @@ const defaults: Schema = {
   onlineMoved: [],
   onlineParkedDir: '',
   vanillaSnapshot: null,
+  rpfAesKey: null,
 }
 
 export const store = new Store<Schema>({ defaults, name: 'gtav-mod-manager' })

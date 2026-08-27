@@ -14,6 +14,7 @@ import { classifyFile } from './classify'
 import { inferRequiredDeps, dependencyStatus } from './deps'
 import { readOivPackage, stageOivLooseFiles } from './oiv'
 import { walk, ensureDir, copyFile, copyDir, pathExists, removeFileAndPrune } from './fsutil'
+import { findDlcPacks, installDlcPacks, uninstallDlcPacks } from '../rpf/dlcpack'
 
 function getMods(): Mod[] {
   return store.get('mods')
@@ -188,9 +189,33 @@ export async function buildPlan(modId: string): Promise<InstallPlan> {
       planned.overwrite = await pathExists(join(gamePath, planned.to))
       files.push(planned)
     }
-    if (files.length === 0) {
-      warnings.push('No installable files were recognised in this archive.')
-    }
+  }
+
+  // Prebuilt add-on DLC packs — installed via RPF write into mods/update.
+  const foundPacks = mod.kind === 'oiv' ? [] : await findDlcPacks(mod.sourceDir)
+  const dlcPacks = foundPacks.map((p) => p.name)
+  // The dlc.rpf copy is part of the plan; classifyFile ignores .rpf so add it here.
+  for (const p of foundPacks) {
+    const from = p.sourceRpf.slice(mod.sourceDir.length + 1).split('\\').join('/')
+    files.push({ from, to: p.targetRel, role: 'mods-tree', overwrite: false })
+  }
+  if (dlcPacks.length) {
+    warnings.push(
+      `Add-on vehicle pack(s): ${dlcPacks.join(', ')}. The dlc.rpf is copied into ` +
+        `mods/update/x64/dlcpacks/ and registered in dlclist.xml (writes update.rpf in the mods folder).`,
+    )
+  }
+
+  const rawAssets = mod.kind === 'oiv' ? 0 : await countRpfAssets(mod.sourceDir)
+  if (rawAssets > 0 && dlcPacks.length === 0) {
+    warnings.push(
+      `${rawAssets} model/metadata file(s) (.yft/.ytd/.meta…) need injecting into a .rpf ` +
+        `archive — not supported. Use the [Add-On] version of this mod, or OpenIV.`,
+    )
+  }
+
+  if (files.length === 0 && dlcPacks.length === 0) {
+    warnings.push('No installable files were recognised in this archive.')
   }
 
   const installedDeps = new Set(
@@ -198,7 +223,30 @@ export async function buildPlan(modId: string): Promise<InstallPlan> {
   )
   const missingDependencies = inferRequiredDeps(files).filter((d) => !installedDeps.has(d))
 
-  return { modId, kind: mod.kind, files, warnings, missingDependencies }
+  return { modId, kind: mod.kind, files, warnings, missingDependencies, dlcPacks }
+}
+
+const RPF_ASSET_EXT = new Set([
+  '.yft',
+  '.ytd',
+  '.ydr',
+  '.ydd',
+  '.ybn',
+  '.ycd',
+  '.ynv',
+  '.ymap',
+  '.ytyp',
+  '.meta',
+  '.gxt2',
+])
+
+async function countRpfAssets(sourceDir: string): Promise<number> {
+  let n = 0
+  for (const abs of await walk(sourceDir)) {
+    const dot = abs.lastIndexOf('.')
+    if (dot >= 0 && RPF_ASSET_EXT.has(abs.slice(dot).toLowerCase())) n++
+  }
+  return n
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +274,13 @@ export async function installMod(
 
   const written: string[] = []
   let done = 0
-  for (const file of plan.files) {
+  // dlc.rpf copies are handled by installDlcPacks; skip them in the plain loop.
+  const dlcTargets = new Set(
+    (await findDlcPacks(mod.sourceDir)).map((p) => p.targetRel),
+  )
+  const plainFiles = plan.files.filter((f) => !dlcTargets.has(f.to))
+
+  for (const file of plainFiles) {
     const src = join(mod.sourceDir, file.from)
     const dst = join(gamePath, file.to)
 
@@ -239,7 +293,17 @@ export async function installMod(
     onProgress?.(++done, plan.files.length, file.to)
   }
 
-  return updateMod(modId, { status: 'installed', installedFiles: written })
+  let dlcPacks: string[] | undefined
+  if (plan.dlcPacks.length > 0) {
+    const packs = await findDlcPacks(mod.sourceDir)
+    const res = await installDlcPacks(gamePath, packs, (label) =>
+      onProgress?.(done, plan.files.length, label),
+    )
+    written.push(...res.installedFiles)
+    dlcPacks = res.packNames
+  }
+
+  return updateMod(modId, { status: 'installed', installedFiles: written, dlcPacks })
 }
 
 export async function uninstallMod(modId: string, markDisabled = false): Promise<Mod> {
@@ -248,7 +312,12 @@ export async function uninstallMod(modId: string, markDisabled = false): Promise
   const gamePath = requireGamePath()
   const modBackupDir = join(backupsDir(), modId)
 
+  if (mod.dlcPacks?.length) {
+    await uninstallDlcPacks(gamePath, mod.dlcPacks)
+  }
+
   for (const rel of mod.installedFiles) {
+    if (mod.dlcPacks?.length && /\/dlcpacks\//i.test(rel)) continue // handled above
     const dst = join(gamePath, rel)
     const backup = join(modBackupDir, rel)
     if (await pathExists(backup)) {
@@ -263,6 +332,7 @@ export async function uninstallMod(modId: string, markDisabled = false): Promise
   return updateMod(modId, {
     status: markDisabled ? 'disabled' : 'not-installed',
     installedFiles: [],
+    dlcPacks: [],
   })
 }
 
