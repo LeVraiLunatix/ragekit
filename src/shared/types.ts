@@ -238,6 +238,38 @@ export interface UpdateInfo {
   latestUpdatedAt?: string
 }
 
+/** A GTA5 crash / error picked up from the Windows Application event log. */
+export interface CrashEvent {
+  time: string
+  id: number
+  provider: string
+  /** e.g. "ScriptHookV.dll" — the DLL that faulted. */
+  faultingModule?: string
+  /** e.g. "0xc0000005" (access violation). */
+  exceptionCode?: string
+  summary: string
+}
+
+/** Result of launching the game from the app. */
+export interface LaunchReport {
+  /** Executable name we ran. */
+  exe: string
+  pid?: number
+  startedAt: string
+  /** Process exit code, or null if it was still running when we stopped waiting. */
+  exitCode: number | null
+  signal: string | null
+  /** Set when the process could not even be spawned (missing file, blocked…). */
+  spawnError: string | null
+  /** True when the game was still alive after the grace period — a good sign. */
+  stillRunning: boolean
+  durationMs: number
+  stdout: string
+  stderr: string
+  crashEvents: CrashEvent[]
+  logs: LogFile[]
+}
+
 export type LogLevel = 'error' | 'warn' | 'info'
 
 export interface LogEntry {

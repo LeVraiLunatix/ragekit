@@ -148,6 +148,22 @@ export const es: Dict = {
     warns_one: '{count} advertencia',
     warns_other: '{count} advertencias',
   },
+  launch: {
+    button: 'Iniciar GTA V',
+    launching: 'Iniciando…',
+    hint: 'Ejecuta GTA5.exe directamente y vigila un fallo temprano. Si necesita el lanzador, ábrelo desde Steam/Rockstar.',
+    title: 'Último inicio',
+    exe: 'se ejecutó {exe}',
+    ok: 'Iniciado — sigue en ejecución',
+    cleanExit: 'Cerrado correctamente',
+    crashed: 'Cerrado con código {code}',
+    failed: 'No se pudo iniciar',
+    faultingModule: 'Módulo con fallo: {mod}',
+    exceptionCode: 'excepción {code}',
+    eventAt: 'evento de Windows {time}',
+    noCrashEvents: 'Windows no informó de ningún fallo de GTA5.exe.',
+    output: 'Salida del proceso',
+  },
   add: {
     title: 'Añadir mods',
     subtitle:

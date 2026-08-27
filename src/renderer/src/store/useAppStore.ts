@@ -4,6 +4,7 @@ import type {
   DependencyStatus,
   GameInfo,
   LanguageCode,
+  LaunchReport,
   Mod,
   Profile,
 } from '@shared/types'
@@ -27,6 +28,8 @@ interface AppState {
   profiles: Profile[]
   conflicts: FileConflict[]
   busy: string | null
+  lastLaunch: LaunchReport | null
+  launching: boolean
 
   setRoute: (r: Route) => void
   setBusy: (label: string | null) => void
@@ -38,6 +41,7 @@ interface AppState {
   setLanguage: (language: LanguageCode) => Promise<void>
   completeOnboarding: () => Promise<void>
   setOnlineSafe: (active: boolean) => Promise<void>
+  launchGame: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -49,6 +53,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   profiles: [],
   conflicts: [],
   busy: null,
+  lastLaunch: null,
+  launching: false,
 
   setRoute: (route) => set({ route }),
   setBusy: (busy) => set({ busy }),
@@ -62,6 +68,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ config, mods, profiles, ready: true })
     void get().refreshMods() // also pulls conflicts
     if (config.game?.valid) void get().refreshDeps()
+    void window.api.game.lastLaunch().then((lastLaunch) => set({ lastLaunch }))
   },
 
   refreshMods: async () => {
@@ -96,5 +103,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     await window.api.online.setMode(active)
     const [config] = await Promise.all([window.api.config.get(), get().refreshMods()])
     set({ config })
+  },
+
+  launchGame: async () => {
+    if (get().launching) return
+    set({ launching: true, route: 'diagnostics' })
+    try {
+      const report = await window.api.game.launch()
+      set({ lastLaunch: report })
+      await get().refreshDeps()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      set({ launching: false })
+    }
   },
 }))

@@ -19,6 +19,7 @@ import type {
   VanillaSnapshot,
   OnlineStatus,
   NonVanillaScan,
+  LaunchReport,
 } from '@shared/types'
 
 export interface FileConflict {
@@ -40,6 +41,8 @@ const api = {
     detect: (): Promise<GameInfo | null> => ipcRenderer.invoke(IPC.gameDetect),
     browse: (): Promise<GameInfo | null> => ipcRenderer.invoke(IPC.gameBrowse),
     validate: (path: string): Promise<GameInfo> => ipcRenderer.invoke(IPC.gameValidate, path),
+    launch: (): Promise<LaunchReport> => ipcRenderer.invoke(IPC.gameLaunch),
+    lastLaunch: (): Promise<LaunchReport | null> => ipcRenderer.invoke(IPC.gameLastLaunch),
   },
   mods: {
     list: (): Promise<Mod[]> => ipcRenderer.invoke(IPC.modsList),

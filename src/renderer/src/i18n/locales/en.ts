@@ -146,6 +146,22 @@ export const en = {
     warns_one: '{count} warning',
     warns_other: '{count} warnings',
   },
+  launch: {
+    button: 'Launch GTA V',
+    launching: 'Launching…',
+    hint: 'Runs GTA5.exe directly and watches for an early crash. If it needs the launcher, start it from Steam/Rockstar instead.',
+    title: 'Last launch',
+    exe: 'ran {exe}',
+    ok: 'Launched — still running',
+    cleanExit: 'Exited cleanly',
+    crashed: 'Exited with code {code}',
+    failed: 'Failed to start',
+    faultingModule: 'Faulting module: {mod}',
+    exceptionCode: 'exception {code}',
+    eventAt: 'Windows event {time}',
+    noCrashEvents: 'Windows reported no crash for GTA5.exe.',
+    output: 'Process output',
+  },
   add: {
     title: 'Add mods',
     subtitle:

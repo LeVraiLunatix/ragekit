@@ -11,6 +11,8 @@ export const IPC = {
   gameDetect: 'game:detect',
   gameBrowse: 'game:browse',
   gameValidate: 'game:validate',
+  gameLaunch: 'game:launch',
+  gameLastLaunch: 'game:lastLaunch',
 
   // mod library
   modsList: 'mods:list',

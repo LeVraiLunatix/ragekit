@@ -2,7 +2,14 @@ import { app } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join, dirname } from 'node:path'
 import Store from 'electron-store'
-import type { AppConfig, Mod, Profile, VanillaSnapshot, VanillaIndex } from '@shared/types'
+import type {
+  AppConfig,
+  Mod,
+  Profile,
+  VanillaSnapshot,
+  VanillaIndex,
+  LaunchReport,
+} from '@shared/types'
 import { pathExists, movePath } from './mods/fsutil'
 
 interface Schema {
@@ -22,6 +29,8 @@ interface Schema {
   rpfAesKey: { tag: string; hex: string } | null
   /** User-provided NG key file (CodeWalker Key.dat or equivalent). */
   ngKeysPath: string
+  /** Result of the last "Launch GTA V" attempt. */
+  lastLaunch: LaunchReport | null
 }
 
 const defaults: Schema = {
@@ -43,6 +52,7 @@ const defaults: Schema = {
   vanillaIndex: null,
   rpfAesKey: null,
   ngKeysPath: '',
+  lastLaunch: null,
 }
 
 export const store = new Store<Schema>({ defaults, name: 'gtav-mod-manager' })

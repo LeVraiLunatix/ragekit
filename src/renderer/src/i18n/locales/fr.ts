@@ -149,6 +149,22 @@ export const fr: Dict = {
     warns_one: '{count} avertissement',
     warns_other: '{count} avertissements',
   },
+  launch: {
+    button: 'Lancer GTA V',
+    launching: 'Lancement…',
+    hint: 'Lance GTA5.exe directement et guette un plantage immédiat. S’il a besoin du launcher, lance-le plutôt via Steam/Rockstar.',
+    title: 'Dernier lancement',
+    exe: '{exe} lancé',
+    ok: 'Lancé — toujours en cours',
+    cleanExit: 'Fermé proprement',
+    crashed: 'Fermé avec le code {code}',
+    failed: 'Échec du démarrage',
+    faultingModule: 'Module défaillant : {mod}',
+    exceptionCode: 'exception {code}',
+    eventAt: 'événement Windows {time}',
+    noCrashEvents: 'Windows n’a signalé aucun plantage de GTA5.exe.',
+    output: 'Sortie du processus',
+  },
   add: {
     title: 'Ajouter des mods',
     subtitle:

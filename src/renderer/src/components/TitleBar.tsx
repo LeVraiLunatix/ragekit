@@ -1,10 +1,29 @@
 import { useState, type ReactNode } from 'react'
-import { Globe, Loader2, ShieldCheck } from 'lucide-react'
+import { Globe, Loader2, Play, ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { Badge } from './ui'
 import { Logo } from './Logo'
+
+function LaunchButton(): ReactNode {
+  const { t } = useI18n()
+  const valid = useAppStore((s) => !!s.config?.game?.valid)
+  const launching = useAppStore((s) => s.launching)
+  const launchGame = useAppStore((s) => s.launchGame)
+
+  return (
+    <button
+      onClick={() => void launchGame()}
+      disabled={!valid || launching}
+      title={t('launch.hint')}
+      className="no-drag flex items-center gap-1.5 rounded-md border border-brand/40 bg-brand/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-hi transition-colors hover:bg-brand/25 disabled:opacity-40"
+    >
+      {launching ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+      {launching ? t('launch.launching') : t('launch.button')}
+    </button>
+  )
+}
 
 function OnlineSafeToggle(): ReactNode {
   const { t } = useI18n()
@@ -67,6 +86,7 @@ export function TitleBar(): ReactNode {
         )}
       </div>
       <div className="flex-1" />
+      <LaunchButton />
       <OnlineSafeToggle />
     </header>
   )

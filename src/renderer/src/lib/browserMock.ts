@@ -17,6 +17,38 @@ if (typeof window !== 'undefined' && !window.api) {
     theme: 'dark',
   }
   const noop = (): void => {}
+  const mockLaunch = {
+    exe: 'GTA5.exe',
+    pid: 12345,
+    startedAt: new Date().toISOString(),
+    exitCode: 3221225477,
+    signal: null,
+    spawnError: null,
+    stillRunning: false,
+    durationMs: 2400,
+    stdout: '',
+    stderr: '',
+    crashEvents: [
+      {
+        time: new Date().toISOString(),
+        id: 1000,
+        provider: 'Application Error',
+        faultingModule: 'ScriptHookV.dll',
+        exceptionCode: '0xc0000005',
+        summary:
+          'Nom de l’application défaillante GTA5.exe · Nom du module défaillant : ScriptHookV.dll · Code d’exception : 0xc0000005',
+      },
+    ],
+    logs: [
+      {
+        name: 'ScriptHookV.log',
+        mtimeMs: Date.now(),
+        errors: 1,
+        warns: 0,
+        entries: [{ level: 'error' as const, text: 'Could not load module' }],
+      },
+    ],
+  }
   let mockProfiles: Array<{ id: string; name: string; enabledMods: string[] }> = []
 
   const mock: Api = {
@@ -40,6 +72,8 @@ if (typeof window !== 'undefined' && !window.api) {
         version: '1.0.3095.0',
       }),
       validate: async (path) => ({ path, platform: 'manual' as const, valid: true }),
+      launch: async () => mockLaunch,
+      lastLaunch: async () => mockLaunch,
     },
     mods: {
       list: async () => [],

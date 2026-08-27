@@ -3,6 +3,7 @@ import { IPC } from '@shared/ipc'
 import type { AppConfig, FoundMod, GameInfo, LanguageCode, RemoteMod } from '@shared/types'
 import { store, migrateDataDir } from './store'
 import { detectGame, validateGameFolder } from './game/detect'
+import { launchGame, getLastLaunch } from './launch'
 import { dependencyStatus } from './mods/deps'
 import {
   listMods,
@@ -94,6 +95,10 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.gameValidate, (_e, path: string) => validateGameFolder(path))
+
+  ipcMain.handle(IPC.gameLaunch, () => launchGame())
+
+  ipcMain.handle(IPC.gameLastLaunch, () => getLastLaunch())
 
   ipcMain.handle(IPC.modsList, () => listMods())
 
