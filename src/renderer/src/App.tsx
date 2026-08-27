@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { useAppStore } from '@/store/useAppStore'
+import { I18nProvider } from '@/i18n'
 import { TitleBar } from '@/components/TitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
@@ -7,33 +8,10 @@ import { LibraryPage } from '@/pages/Library'
 import { AddModsPage } from '@/pages/AddMods'
 import { DependenciesPage } from '@/pages/Dependencies'
 import { SettingsPage } from '@/pages/Settings'
-import { OnlineWarning } from '@/pages/OnlineWarning'
+import { Onboarding } from '@/onboarding/Onboarding'
 
-export default function App(): ReactNode {
-  const { ready, route, config, bootstrap, refreshMods, refreshDeps } = useAppStore()
-
-  useEffect(() => {
-    void bootstrap()
-    const offMods = window.api.on.modsChanged(() => {
-      void refreshMods()
-      void refreshDeps()
-    })
-    return offMods
-  }, [bootstrap, refreshMods, refreshDeps])
-
-  if (!ready) {
-    return (
-      <div className="flex h-full items-center justify-center gap-2 text-ink-faint">
-        <Spinner />
-        Loading…
-      </div>
-    )
-  }
-
-  if (config && !config.onlineWarningAccepted) {
-    return <OnlineWarning />
-  }
-
+function Shell(): ReactNode {
+  const route = useAppStore((s) => s.route)
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
@@ -47,5 +25,31 @@ export default function App(): ReactNode {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function App(): ReactNode {
+  const { ready, config, bootstrap, refreshMods, refreshDeps } = useAppStore()
+
+  useEffect(() => {
+    void bootstrap()
+    return window.api.on.modsChanged(() => {
+      void refreshMods()
+      void refreshDeps()
+    })
+  }, [bootstrap, refreshMods, refreshDeps])
+
+  return (
+    <I18nProvider>
+      {!ready || !config ? (
+        <div className="flex h-full items-center justify-center gap-2 text-ink-faint">
+          <Spinner />
+        </div>
+      ) : !config.onboarded ? (
+        <Onboarding />
+      ) : (
+        <Shell />
+      )}
+    </I18nProvider>
   )
 }

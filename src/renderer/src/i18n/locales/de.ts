@@ -1,0 +1,158 @@
+import type { Dict } from './en'
+
+export const de: Dict = {
+  common: {
+    back: 'Zurück',
+    next: 'Weiter',
+    continue: 'Weiter',
+    skip: 'Überspringen',
+    loading: 'Lädt…',
+  },
+  lang: {
+    fr: 'Französisch',
+    en: 'Englisch',
+    es: 'Spanisch',
+    de: 'Deutsch',
+  },
+  titlebar: {
+    noGameFolder: 'kein Spielordner',
+  },
+  nav: {
+    library: 'Bibliothek',
+    add: 'Mods hinzufügen',
+    dependencies: 'Abhängigkeiten',
+    settings: 'Einstellungen',
+    openGameFolder: 'Spielordner öffnen',
+    disclaimer: 'Nur Einzelspieler. Lade niemals Mods in GTA Online.',
+  },
+  onboarding: {
+    stepOf: 'Schritt {current} von {total}',
+    welcome: {
+      title: 'GTAV Mod Manager',
+      subtitle:
+        'Installiere Mods für den GTA-V-Story-Modus, schalte sie ein und aus und deinstalliere sie jedes Mal sauber.',
+      cta: 'Loslegen',
+    },
+    language: {
+      title: 'Wähle deine Sprache',
+      subtitle: 'Du kannst sie später in den Einstellungen ändern.',
+    },
+    game: {
+      title: 'Grand Theft Auto V finden',
+      subtitle: 'Der Manager braucht den Ordner, der GTA5.exe enthält.',
+      autoDetect: 'Automatisch erkennen',
+      browse: 'Durchsuchen…',
+      detecting: 'Suche nach deiner Installation…',
+      notFound:
+        'GTA V konnte nicht automatisch gefunden werden. Nutze „Durchsuchen“, um den Ordner auszuwählen.',
+      valid: 'Spiel gefunden',
+      invalid: 'GTA5.exe ist nicht in diesem Ordner',
+      detectedVia: 'über {platform}',
+      version: 'Build {version}',
+      later: 'Ich richte das später ein',
+    },
+    safety: {
+      title: 'Eine wichtige Sache',
+      body1:
+        'Mit diesem Tool installierte Mods sind für den Story-Modus. GTA Online mit Script Hook V oder veränderten Spieldateien zu starten, kann zur Sperrung deines Rockstar-Kontos führen.',
+      body2: 'Deaktiviere deine Mods immer, bevor du online spielst.',
+      checkbox: 'Verstanden — nur Story-Modus',
+    },
+    done: {
+      title: 'Alles bereit',
+      subtitle: 'Deine Bibliothek ist bereit. Zieh eine .zip oder .oiv herein, um deinen ersten Mod zu installieren.',
+      cta: 'GTAV Mod Manager öffnen',
+    },
+  },
+  library: {
+    title: 'Bibliothek',
+    subtitle: 'Schalte einen Mod um, um ihn zu installieren oder zu deaktivieren.',
+    add: 'Hinzufügen',
+    count_one: '{count} Mod',
+    count_other: '{count} Mods',
+    emptyTitle: 'Noch keine Mods',
+    emptyHint:
+      'Importiere eine .zip oder .oiv, um zu beginnen. Alles wird erfasst, damit du später sauber deinstallieren kannst.',
+    emptyCta: 'Ersten Mod hinzufügen',
+    removeConfirm: '„{name}“ entfernen und die ersetzten Dateien wiederherstellen?',
+    files_one: '{count} Datei',
+    files_other: '{count} Dateien',
+    addedAgo: 'hinzugefügt {time}',
+    status: {
+      installed: 'installiert',
+      disabled: 'deaktiviert',
+      notInstalled: 'nicht installiert',
+      error: 'Fehler',
+    },
+  },
+  add: {
+    title: 'Mods hinzufügen',
+    subtitle:
+      'Zieh eine .zip oder .oiv oder einen Mod-Ordner herein. Er wird in deine Bibliothek kopiert und analysiert.',
+    needGameFolder: 'Lege deinen GTA-V-Ordner in den Einstellungen fest, bevor du etwas installierst.',
+    dropHere: 'Mod-Dateien hierher ziehen',
+    chooseFiles: 'Dateien auswählen…',
+    install: 'Installieren',
+    noMeta: 'Keine Metadaten',
+  },
+  plan: {
+    files_one: '{count} Datei',
+    files_other: '{count} Dateien',
+    overwrites_one: '{count} Überschreibung',
+    overwrites_other: '{count} Überschreibungen',
+    oivPackage: 'OIV-Paket',
+    dropin: 'Drop-in',
+    missingDeps: 'Fehlende Abhängigkeiten',
+    missingDepsHint:
+      '{list} — im Tab Abhängigkeiten installieren. Du kannst diesen Mod trotzdem installieren; er wird im Spiel nur noch nicht geladen.',
+    roles: {
+      asi: 'ASI-Plugins',
+      scriptDll: '.NET-Skript-Plugins',
+      script: 'Skriptdateien',
+      rootDll: 'Loader-DLLs (Spielstammordner)',
+      modsTree: 'Dateien im mods/-Baum',
+      asset: 'Konfig & Assets',
+      ignored: 'Ignoriert',
+    },
+  },
+  deps: {
+    title: 'Abhängigkeiten',
+    subtitle:
+      'Runtimes, auf die Mods angewiesen sind. Installiere die fehlenden von ihren offiziellen Seiten.',
+    rescan: 'Neu scannen',
+    setFolderFirst: 'Lege zuerst deinen Spielordner fest',
+    setFolderHint: 'Abhängigkeiten werden in der GTA-V-Installation erkannt.',
+    found: 'Gefunden: {detail}',
+    notDetected: 'Nicht erkannt',
+    getIt: 'Holen',
+    hint: 'Lege nach dem Download von Script Hook V die ScriptHookV.dll und dinput8.dll in deinen Spielordner und klicke dann auf Neu scannen.',
+    names: {
+      scripthookv: 'Script Hook V',
+      scripthookvdotnet: 'Script Hook V .NET',
+      'openiv-asi': 'OpenIV.asi (mods-Ordner-Unterstützung)',
+      'community-sh': 'Community Script Hook V .NET Runtime',
+    },
+  },
+  settings: {
+    title: 'Einstellungen',
+    subtitle: 'Zeige dem Manager, wo deine Grand-Theft-Auto-V-Installation liegt.',
+    gameFolder: 'Spielordner',
+    valid: 'gültig',
+    invalid: 'GTA5.exe nicht gefunden',
+    notSet: 'Nicht festgelegt',
+    autoDetect: 'Automatisch erkennen',
+    browse: 'Durchsuchen…',
+    clear: 'Löschen',
+    exeInfo: 'Programmversion {version} · erkannt über {platform}',
+    detectFail: 'GTA V konnte nicht automatisch erkannt werden. Nutze „Durchsuchen“, um den Ordner auszuwählen.',
+    language: 'Sprache',
+    languageSub: 'Sprache der Oberfläche.',
+    note: 'Mods werden in eine interne Bibliothek kopiert, du kannst den ursprünglichen Download nach dem Import also löschen. Überschriebene Spieldateien werden gesichert und automatisch wiederhergestellt, wenn du einen Mod deaktivierst oder entfernst.',
+  },
+  time: {
+    justNow: 'gerade eben',
+    minutesAgo: 'vor {n} Min.',
+    hoursAgo: 'vor {n} Std.',
+    daysAgo: 'vor {n} T.',
+  },
+}

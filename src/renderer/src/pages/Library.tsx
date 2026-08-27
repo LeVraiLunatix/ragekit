@@ -2,18 +2,20 @@ import { useState, type ReactNode } from 'react'
 import { Boxes, FolderOpen, Trash2, PlusCircle, PackageOpen, FileBox } from 'lucide-react'
 import type { Mod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
+import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge, Toggle, EmptyState } from '@/components/ui'
-import { timeAgo } from '@/lib/utils'
 
 function StatusBadge({ status }: { status: Mod['status'] }): ReactNode {
-  if (status === 'installed') return <Badge tone="good">installed</Badge>
-  if (status === 'disabled') return <Badge tone="neutral">disabled</Badge>
-  if (status === 'error') return <Badge tone="bad">error</Badge>
-  return <Badge tone="neutral">not installed</Badge>
+  const { t } = useI18n()
+  if (status === 'installed') return <Badge tone="good">{t('library.status.installed')}</Badge>
+  if (status === 'disabled') return <Badge tone="neutral">{t('library.status.disabled')}</Badge>
+  if (status === 'error') return <Badge tone="bad">{t('library.status.error')}</Badge>
+  return <Badge tone="neutral">{t('library.status.notInstalled')}</Badge>
 }
 
 function ModRow({ mod }: { mod: Mod }): ReactNode {
+  const { t, tc, relative } = useI18n()
   const { refreshMods, refreshDeps } = useAppStore()
   const [busy, setBusy] = useState(false)
   const enabled = mod.status === 'installed'
@@ -31,7 +33,7 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
   }
 
   const remove = async (): Promise<void> => {
-    if (!confirm(`Remove "${mod.name}" and restore any files it replaced?`)) return
+    if (!confirm(t('library.removeConfirm', { name: mod.name }))) return
     setBusy(true)
     try {
       await window.api.mods.remove(mod.id)
@@ -57,8 +59,8 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
           {[
             mod.author,
             mod.version && `v${mod.version}`,
-            `added ${timeAgo(mod.addedAt)}`,
-            mod.installedFiles.length > 0 && `${mod.installedFiles.length} files`,
+            t('library.addedAgo', { time: relative(mod.addedAt) }),
+            mod.installedFiles.length > 0 && tc('library.files', mod.installedFiles.length),
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -76,28 +78,29 @@ function ModRow({ mod }: { mod: Mod }): ReactNode {
 }
 
 export function LibraryPage(): ReactNode {
+  const { t, tc } = useI18n()
   const { mods, setRoute } = useAppStore()
 
   return (
     <Page
-      title="Library"
-      subtitle={`${mods.length} mod${mods.length === 1 ? '' : 's'} · toggle to install or disable`}
+      title={t('library.title')}
+      subtitle={`${tc('library.count', mods.length)} · ${t('library.subtitle')}`}
       actions={
         <Button size="sm" variant="primary" onClick={() => setRoute('add')}>
           <PlusCircle className="size-3.5" />
-          Add
+          {t('library.add')}
         </Button>
       }
     >
       {mods.length === 0 ? (
         <EmptyState
           icon={<Boxes className="size-8" />}
-          title="No mods yet"
-          hint="Import a .zip or .oiv to get started. Everything is tracked so you can cleanly uninstall later."
+          title={t('library.emptyTitle')}
+          hint={t('library.emptyHint')}
           action={
             <Button variant="primary" onClick={() => setRoute('add')}>
               <PlusCircle className="size-4" />
-              Add your first mod
+              {t('library.emptyCta')}
             </Button>
           }
         />

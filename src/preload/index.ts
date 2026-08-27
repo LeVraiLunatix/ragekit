@@ -6,6 +6,7 @@ import type {
   GameInfo,
   ImportResult,
   InstallPlan,
+  LanguageCode,
   Mod,
   TaskProgress,
 } from '@shared/types'
@@ -15,8 +16,10 @@ const api = {
     get: (): Promise<AppConfig> => ipcRenderer.invoke(IPC.configGet),
     setGame: (game: GameInfo | null): Promise<AppConfig> =>
       ipcRenderer.invoke(IPC.configSetGame, game),
-    acceptOnlineWarning: (): Promise<AppConfig> =>
-      ipcRenderer.invoke(IPC.configAcceptOnlineWarning),
+    setLanguage: (language: LanguageCode): Promise<AppConfig> =>
+      ipcRenderer.invoke(IPC.configSetLanguage, language),
+    completeOnboarding: (): Promise<AppConfig> =>
+      ipcRenderer.invoke(IPC.configCompleteOnboarding),
   },
   game: {
     detect: (): Promise<GameInfo | null> => ipcRenderer.invoke(IPC.gameDetect),

@@ -3,12 +3,23 @@ import { join } from 'node:path'
 import { store, libraryDir, backupsDir } from './store'
 import { registerIpc } from './ipc'
 import { promises as fs } from 'node:fs'
+import type { LanguageCode } from '@shared/types'
 
 const isDev = !app.isPackaged
+const SUPPORTED_LANGS: LanguageCode[] = ['fr', 'en', 'es', 'de']
 
 async function ensureDirs(): Promise<void> {
   await fs.mkdir(libraryDir(), { recursive: true })
   await fs.mkdir(backupsDir(), { recursive: true })
+}
+
+/** On the very first run, seed the UI language from the OS locale. */
+function seedLanguageOnFirstRun(): void {
+  const config = store.get('config')
+  if (config.onboarded) return
+  const short = app.getLocale().slice(0, 2).toLowerCase() as LanguageCode
+  const language = SUPPORTED_LANGS.includes(short) ? short : 'en'
+  if (language !== config.language) store.set('config', { ...config, language })
 }
 
 function createWindow(): void {
@@ -44,6 +55,7 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   nativeTheme.themeSource = store.get('config').theme === 'light' ? 'light' : 'dark'
+  seedLanguageOnFirstRun()
   await ensureDirs()
   registerIpc()
   createWindow()

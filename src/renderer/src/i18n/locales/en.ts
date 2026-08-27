@@ -1,0 +1,158 @@
+/** English is the source of truth: every other locale must match this shape. */
+export const en = {
+  common: {
+    back: 'Back',
+    next: 'Next',
+    continue: 'Continue',
+    skip: 'Skip',
+    loading: 'Loading…',
+  },
+  lang: {
+    fr: 'French',
+    en: 'English',
+    es: 'Spanish',
+    de: 'German',
+  },
+  titlebar: {
+    noGameFolder: 'no game folder',
+  },
+  nav: {
+    library: 'Library',
+    add: 'Add mods',
+    dependencies: 'Dependencies',
+    settings: 'Settings',
+    openGameFolder: 'Open game folder',
+    disclaimer: 'Single-player only. Never load mods in GTA Online.',
+  },
+  onboarding: {
+    stepOf: 'Step {current} of {total}',
+    welcome: {
+      title: 'GTAV Mod Manager',
+      subtitle:
+        'Install mods for GTA V Story Mode, toggle them on and off, and get a clean uninstall every time.',
+      cta: 'Get started',
+    },
+    language: {
+      title: 'Choose your language',
+      subtitle: 'You can change this later in Settings.',
+    },
+    game: {
+      title: 'Locate Grand Theft Auto V',
+      subtitle: 'The manager needs the folder that contains GTA5.exe.',
+      autoDetect: 'Auto-detect',
+      browse: 'Browse…',
+      detecting: 'Scanning for your install…',
+      notFound: "Couldn't find GTA V automatically. Use Browse to select the folder.",
+      valid: 'Game found',
+      invalid: 'GTA5.exe not found in this folder',
+      detectedVia: 'via {platform}',
+      version: 'build {version}',
+      later: "I'll set this up later",
+    },
+    safety: {
+      title: 'One important thing',
+      body1:
+        'Mods installed with this tool are for Story Mode. Launching GTA Online with Script Hook V or modified game files present can get your Rockstar account banned.',
+      body2: 'Always disable your mods before playing online.',
+      checkbox: 'I understand — Story Mode only',
+    },
+    done: {
+      title: "You're all set",
+      subtitle: 'Your library is ready. Drop in a .zip or .oiv to install your first mod.',
+      cta: 'Open GTAV Mod Manager',
+    },
+  },
+  library: {
+    title: 'Library',
+    subtitle: 'Toggle a mod to install or disable it.',
+    add: 'Add',
+    count_one: '{count} mod',
+    count_other: '{count} mods',
+    emptyTitle: 'No mods yet',
+    emptyHint:
+      'Import a .zip or .oiv to get started. Everything is tracked so you can cleanly uninstall later.',
+    emptyCta: 'Add your first mod',
+    removeConfirm: 'Remove "{name}" and restore any files it replaced?',
+    files_one: '{count} file',
+    files_other: '{count} files',
+    addedAgo: 'added {time}',
+    status: {
+      installed: 'installed',
+      disabled: 'disabled',
+      notInstalled: 'not installed',
+      error: 'error',
+    },
+  },
+  add: {
+    title: 'Add mods',
+    subtitle:
+      'Drop a .zip or .oiv, or a mod folder. It gets copied into your library and analysed.',
+    needGameFolder: 'Set your GTA V folder in Settings before installing anything.',
+    dropHere: 'Drag mod files here',
+    chooseFiles: 'Choose files…',
+    install: 'Install',
+    noMeta: 'No metadata',
+  },
+  plan: {
+    files_one: '{count} file',
+    files_other: '{count} files',
+    overwrites_one: '{count} overwrite',
+    overwrites_other: '{count} overwrites',
+    oivPackage: 'OIV package',
+    dropin: 'Drop-in',
+    missingDeps: 'Missing dependencies',
+    missingDepsHint:
+      "{list} — install from the Dependencies tab. You can still install this mod; it just won't load in-game yet.",
+    roles: {
+      asi: 'ASI plugins',
+      scriptDll: '.NET script plugins',
+      script: 'Script files',
+      rootDll: 'Loader DLLs (game root)',
+      modsTree: 'Files in mods/ tree',
+      asset: 'Config & assets',
+      ignored: 'Ignored',
+    },
+  },
+  deps: {
+    title: 'Dependencies',
+    subtitle:
+      'Runtimes that mods rely on. Install the missing ones from their official pages.',
+    rescan: 'Rescan',
+    setFolderFirst: 'Set your game folder first',
+    setFolderHint: 'Dependencies are detected inside the GTA V install.',
+    found: 'Found: {detail}',
+    notDetected: 'Not detected',
+    getIt: 'Get it',
+    hint: 'After downloading Script Hook V, drop ScriptHookV.dll and dinput8.dll into your game folder, then hit Rescan.',
+    names: {
+      scripthookv: 'Script Hook V',
+      scripthookvdotnet: 'Script Hook V .NET',
+      'openiv-asi': 'OpenIV.asi (mods folder support)',
+      'community-sh': 'Community Script Hook V .NET runtime',
+    },
+  },
+  settings: {
+    title: 'Settings',
+    subtitle: 'Point the manager at your Grand Theft Auto V install.',
+    gameFolder: 'Game folder',
+    valid: 'valid',
+    invalid: 'GTA5.exe not found',
+    notSet: 'Not set',
+    autoDetect: 'Auto-detect',
+    browse: 'Browse…',
+    clear: 'Clear',
+    exeInfo: 'Executable version {version} · detected via {platform}',
+    detectFail: 'Could not auto-detect GTA V. Use "Browse" to select the folder.',
+    language: 'Language',
+    languageSub: 'Interface language.',
+    note: 'Mods are copied into an internal library, so the original download can be deleted after importing. Overwritten game files are backed up and restored automatically when you disable or remove a mod.',
+  },
+  time: {
+    justNow: 'just now',
+    minutesAgo: '{n}m ago',
+    hoursAgo: '{n}h ago',
+    daysAgo: '{n}d ago',
+  },
+}
+
+export type Dict = typeof en

@@ -2,11 +2,13 @@ import { useCallback, useState, type DragEvent, type ReactNode } from 'react'
 import { UploadCloud, FolderOpen, Trash2, Download } from 'lucide-react'
 import type { ImportResult } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
+import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card } from '@/components/ui'
 import { PlanPreview } from '@/components/PlanPreview'
 
 export function AddModsPage(): ReactNode {
+  const { t } = useI18n()
   const { config, setRoute, refreshMods, refreshDeps } = useAppStore()
   const [results, setResults] = useState<ImportResult[]>([])
   const [importing, setImporting] = useState(false)
@@ -14,20 +16,17 @@ export function AddModsPage(): ReactNode {
   const [installingId, setInstallingId] = useState<string | null>(null)
   const gameReady = !!config?.game?.valid
 
-  const ingest = useCallback(
-    async (run: () => Promise<ImportResult[]>) => {
-      setImporting(true)
-      try {
-        const out = await run()
-        if (out.length) setResults((prev) => [...out, ...prev])
-      } catch (err) {
-        alert(err instanceof Error ? err.message : String(err))
-      } finally {
-        setImporting(false)
-      }
-    },
-    [],
-  )
+  const ingest = useCallback(async (run: () => Promise<ImportResult[]>) => {
+    setImporting(true)
+    try {
+      const out = await run()
+      if (out.length) setResults((prev) => [...out, ...prev])
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setImporting(false)
+    }
+  }, [])
 
   const onDrop = useCallback(
     (e: DragEvent) => {
@@ -42,13 +41,10 @@ export function AddModsPage(): ReactNode {
   )
 
   return (
-    <Page
-      title="Add mods"
-      subtitle="Drop a .zip or .oiv, or a mod folder. It gets copied into your library and analysed."
-    >
+    <Page title={t('add.title')} subtitle={t('add.subtitle')}>
       {!gameReady && (
         <Card className="mb-4 border-warn/30 bg-warn/10 p-3 text-[13px] text-warn">
-          Set your GTA V folder in Settings before installing anything.
+          {t('add.needGameFolder')}
         </Card>
       )}
 
@@ -64,7 +60,7 @@ export function AddModsPage(): ReactNode {
         }`}
       >
         <UploadCloud className={`size-9 ${dragOver ? 'text-brand' : 'text-ink-faint'}`} />
-        <p className="mt-3 text-sm text-ink-soft">Drag mod files here</p>
+        <p className="mt-3 text-sm text-ink-soft">{t('add.dropHere')}</p>
         <div className="mt-4 flex gap-2">
           <Button
             variant="primary"
@@ -72,7 +68,7 @@ export function AddModsPage(): ReactNode {
             onClick={() => void ingest(() => window.api.mods.import())}
           >
             <FolderOpen className="size-4" />
-            Choose files…
+            {t('add.chooseFiles')}
           </Button>
         </div>
       </div>
@@ -85,7 +81,7 @@ export function AddModsPage(): ReactNode {
                 <p className="truncate text-sm font-semibold">{mod.name}</p>
                 <p className="text-[12px] text-ink-faint">
                   {[mod.author, mod.version && `v${mod.version}`].filter(Boolean).join(' · ') ||
-                    'No metadata'}
+                    t('add.noMeta')}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -109,7 +105,7 @@ export function AddModsPage(): ReactNode {
                   }}
                 >
                   <Download className="size-3.5" />
-                  Install
+                  {t('add.install')}
                 </Button>
                 <Button
                   size="sm"

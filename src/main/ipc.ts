@@ -1,6 +1,6 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { AppConfig, GameInfo } from '@shared/types'
+import type { AppConfig, GameInfo, LanguageCode } from '@shared/types'
 import { store } from './store'
 import { detectGame, validateGameFolder } from './game/detect'
 import { dependencyStatus } from './mods/deps'
@@ -34,8 +34,12 @@ export function registerIpc(): void {
 
   ipcMain.handle(IPC.configSetGame, (_e, game: GameInfo | null) => setConfig({ game }))
 
-  ipcMain.handle(IPC.configAcceptOnlineWarning, () =>
-    setConfig({ onlineWarningAccepted: true }),
+  ipcMain.handle(IPC.configSetLanguage, (_e, language: LanguageCode) =>
+    setConfig({ language }),
+  )
+
+  ipcMain.handle(IPC.configCompleteOnboarding, () =>
+    setConfig({ onboarded: true, onlineWarningAccepted: true }),
   )
 
   ipcMain.handle(IPC.gameDetect, () => detectGame())

@@ -1,11 +1,12 @@
 import { useEffect, type ReactNode } from 'react'
-import { CheckCircle2, Circle, ExternalLink, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Circle, ExternalLink, RefreshCw, Puzzle } from 'lucide-react'
+import type { DependencyId } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
+import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, EmptyState } from '@/components/ui'
-import { Puzzle } from 'lucide-react'
 
-const LINKS: Record<string, string> = {
+const LINKS: Record<DependencyId, string> = {
   scripthookv: 'http://www.dev-c.com/gtav/scripthookv/',
   scripthookvdotnet: 'https://github.com/scripthookvdotnet/scripthookvdotnet/releases',
   'openiv-asi': 'https://openiv.com/',
@@ -13,6 +14,7 @@ const LINKS: Record<string, string> = {
 }
 
 export function DependenciesPage(): ReactNode {
+  const { t } = useI18n()
   const { deps, config, refreshDeps } = useAppStore()
 
   useEffect(() => {
@@ -21,11 +23,11 @@ export function DependenciesPage(): ReactNode {
 
   if (!config?.game?.valid) {
     return (
-      <Page title="Dependencies">
+      <Page title={t('deps.title')}>
         <EmptyState
           icon={<Puzzle className="size-7" />}
-          title="Set your game folder first"
-          hint="Dependencies are detected inside the GTA V install."
+          title={t('deps.setFolderFirst')}
+          hint={t('deps.setFolderHint')}
         />
       </Page>
     )
@@ -33,12 +35,12 @@ export function DependenciesPage(): ReactNode {
 
   return (
     <Page
-      title="Dependencies"
-      subtitle="Runtimes that mods rely on. Install the missing ones from their official pages."
+      title={t('deps.title')}
+      subtitle={t('deps.subtitle')}
       actions={
         <Button size="sm" variant="ghost" onClick={() => refreshDeps()}>
           <RefreshCw className="size-3.5" />
-          Rescan
+          {t('deps.rescan')}
         </Button>
       }
     >
@@ -51,25 +53,21 @@ export function DependenciesPage(): ReactNode {
               <Circle className="size-5 shrink-0 text-ink-faint" />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{d.name}</p>
+              <p className="text-sm font-medium">{t(`deps.names.${d.id}`)}</p>
               <p className="truncate text-[12px] text-ink-faint">
-                {d.installed ? `Found: ${d.detail}` : 'Not detected'}
+                {d.installed ? t('deps.found', { detail: d.detail ?? '' }) : t('deps.notDetected')}
               </p>
             </div>
             {!d.installed && LINKS[d.id] && (
               <Button size="sm" onClick={() => window.api.misc.openExternal(LINKS[d.id])}>
-                Get it
+                {t('deps.getIt')}
                 <ExternalLink className="size-3.5" />
               </Button>
             )}
           </Card>
         ))}
       </div>
-      <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">
-        After downloading Script Hook V, drop <span className="font-mono text-ink">ScriptHookV.dll</span>{' '}
-        and <span className="font-mono text-ink">dinput8.dll</span> into your game folder, then hit
-        Rescan.
-      </p>
+      <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">{t('deps.hint')}</p>
     </Page>
   )
 }

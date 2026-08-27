@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react'
 import { Boxes, PlusCircle, Puzzle, Settings, FolderOpen } from 'lucide-react'
 import { useAppStore, type Route } from '@/store/useAppStore'
+import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-const ITEMS: Array<{ id: Route; label: string; icon: ReactNode }> = [
-  { id: 'library', label: 'Library', icon: <Boxes className="size-4" /> },
-  { id: 'add', label: 'Add mods', icon: <PlusCircle className="size-4" /> },
-  { id: 'dependencies', label: 'Dependencies', icon: <Puzzle className="size-4" /> },
-  { id: 'settings', label: 'Settings', icon: <Settings className="size-4" /> },
+const ITEMS: Array<{ id: Route; key: string; icon: ReactNode }> = [
+  { id: 'library', key: 'nav.library', icon: <Boxes className="size-4" /> },
+  { id: 'add', key: 'nav.add', icon: <PlusCircle className="size-4" /> },
+  { id: 'dependencies', key: 'nav.dependencies', icon: <Puzzle className="size-4" /> },
+  { id: 'settings', key: 'nav.settings', icon: <Settings className="size-4" /> },
 ]
 
 export function Sidebar(): ReactNode {
+  const { t } = useI18n()
   const { route, setRoute, mods, config } = useAppStore()
   const installed = mods.filter((m) => m.status === 'installed').length
 
@@ -28,7 +30,7 @@ export function Sidebar(): ReactNode {
           )}
         >
           {item.icon}
-          {item.label}
+          {t(item.key)}
           {item.id === 'library' && mods.length > 0 && (
             <span className="ml-auto text-[11px] text-ink-faint">
               {installed}/{mods.length}
@@ -45,11 +47,9 @@ export function Sidebar(): ReactNode {
         className="no-drag flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-ink-faint transition-colors hover:bg-bg-hover hover:text-ink-soft disabled:opacity-40"
       >
         <FolderOpen className="size-3.5" />
-        Open game folder
+        {t('nav.openGameFolder')}
       </button>
-      <p className="px-3 pt-1 text-[10px] leading-tight text-ink-faint/70">
-        Single-player only. Never load mods in GTA Online.
-      </p>
+      <p className="px-3 pt-1 text-[10px] leading-tight text-ink-faint/70">{t('nav.disclaimer')}</p>
     </nav>
   )
 }

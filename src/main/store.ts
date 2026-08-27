@@ -12,6 +12,8 @@ interface Schema {
 const defaults: Schema = {
   config: {
     game: null,
+    language: 'en',
+    onboarded: false,
     activeProfileId: null,
     onlineWarningAccepted: false,
     theme: 'dark',

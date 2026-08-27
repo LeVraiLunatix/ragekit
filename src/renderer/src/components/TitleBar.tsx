@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { Gamepad2 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
+import { useI18n } from '@/i18n'
 import { Badge } from './ui'
 
 export function TitleBar(): ReactNode {
+  const { t } = useI18n()
   const game = useAppStore((s) => s.config?.game ?? null)
 
   return (
@@ -14,7 +16,7 @@ export function TitleBar(): ReactNode {
         {game?.valid ? (
           <Badge tone="good">{game.platform}</Badge>
         ) : (
-          <Badge tone="warn">no game folder</Badge>
+          <Badge tone="warn">{t('titlebar.noGameFolder')}</Badge>
         )}
       </div>
       <div className="flex-1" />

@@ -86,8 +86,12 @@ export interface Profile {
   enabledMods: string[]
 }
 
+export type LanguageCode = 'fr' | 'en' | 'es' | 'de'
+
 export interface AppConfig {
   game: GameInfo | null
+  language: LanguageCode
+  onboarded: boolean
   activeProfileId: string | null
   onlineWarningAccepted: boolean
   theme: 'dark' | 'light'

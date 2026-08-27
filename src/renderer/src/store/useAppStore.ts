@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppConfig, DependencyStatus, GameInfo, Mod } from '@shared/types'
+import type { AppConfig, DependencyStatus, GameInfo, LanguageCode, Mod } from '@shared/types'
 
 export type Route = 'library' | 'add' | 'dependencies' | 'settings'
 
@@ -17,6 +17,8 @@ interface AppState {
   refreshMods: () => Promise<void>
   refreshDeps: () => Promise<void>
   setGame: (game: GameInfo | null) => Promise<void>
+  setLanguage: (language: LanguageCode) => Promise<void>
+  completeOnboarding: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -44,5 +46,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const config = await window.api.config.setGame(game)
     set({ config })
     await get().refreshDeps()
+  },
+
+  setLanguage: async (language) => {
+    const config = await window.api.config.setLanguage(language)
+    set({ config })
+  },
+
+  completeOnboarding: async () => {
+    const config = await window.api.config.completeOnboarding()
+    set({ config })
   },
 }))

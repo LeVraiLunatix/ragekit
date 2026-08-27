@@ -4,7 +4,8 @@ export const IPC = {
   // config
   configGet: 'config:get',
   configSetGame: 'config:setGame',
-  configAcceptOnlineWarning: 'config:acceptOnlineWarning',
+  configSetLanguage: 'config:setLanguage',
+  configCompleteOnboarding: 'config:completeOnboarding',
 
   // game detection
   gameDetect: 'game:detect',
