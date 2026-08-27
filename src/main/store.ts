@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import Store from 'electron-store'
 import type { AppConfig, Mod, Profile, VanillaSnapshot } from '@shared/types'
 
@@ -9,6 +9,8 @@ interface Schema {
   profiles: Profile[]
   /** Files renamed aside by online-safe mode, as game-relative paths. */
   onlineMoved: string[]
+  /** Absolute path of the folder those files were parked in (set on enable). */
+  onlineParkedDir: string
   vanillaSnapshot: VanillaSnapshot | null
 }
 
@@ -25,6 +27,7 @@ const defaults: Schema = {
   mods: [],
   profiles: [{ id: 'default', name: 'Default', enabledMods: [] }],
   onlineMoved: [],
+  onlineParkedDir: '',
   vanillaSnapshot: null,
 }
 
@@ -41,9 +44,13 @@ export function backupsDir(): string {
 }
 
 /**
- * Folder OUTSIDE the game directory where mod loaders / folders are parked while
- * online-safe mode is on, so the game directory is byte-identical to vanilla.
+ * Folder where mod loaders / folders are parked while online-safe mode is on, so
+ * the game directory is byte-identical to vanilla. Sits NEXT TO the game folder
+ * (same drive) so moves are instant and nothing lands on the system drive.
+ * Falls back to userData only when no game folder is configured yet.
  */
 export function parkedDir(): string {
-  return join(app.getPath('userData'), 'parked')
+  const gamePath = store.get('config').game?.path
+  const base = gamePath ? dirname(gamePath) : app.getPath('userData')
+  return join(base, 'GTAV Mod Manager (parked mods)')
 }

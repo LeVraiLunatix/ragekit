@@ -59,7 +59,7 @@ export interface OnlineModeResult {
 /** Park every mod loader / folder outside the game directory. */
 export async function enableOnlineSafeMode(): Promise<OnlineModeResult> {
   const gamePath = requireGamePath()
-  const park = parkedDir()
+  const park = parkedDir() // sits next to the game folder, same drive
   await ensureDir(park)
 
   const names = [...new Set([...NAMED_TARGETS, ...NAMED_DIRS, ...(await rootAsiFiles(gamePath))])]
@@ -76,6 +76,7 @@ export async function enableOnlineSafeMode(): Promise<OnlineModeResult> {
   }
 
   store.set('onlineMoved', moved)
+  store.set('onlineParkedDir', park)
   store.set('config', { ...store.get('config'), onlineSafeMode: true })
   return { active: true, moved }
 }
@@ -83,7 +84,8 @@ export async function enableOnlineSafeMode(): Promise<OnlineModeResult> {
 /** Move everything parked back into the game directory. */
 export async function disableOnlineSafeMode(): Promise<OnlineModeResult> {
   const gamePath = requireGamePath()
-  const park = parkedDir()
+  // Prefer the exact folder used at enable time (the game path may have changed).
+  const park = store.get('onlineParkedDir') || parkedDir()
 
   const parked = await fs.readdir(park, { withFileTypes: true }).catch(() => [])
   for (const entry of parked) {
@@ -97,7 +99,11 @@ export async function disableOnlineSafeMode(): Promise<OnlineModeResult> {
     await movePath(src, dst)
   }
 
+  // Leave nothing behind next to the game folder.
+  await fs.rmdir(park).catch(() => {})
+
   store.set('onlineMoved', [])
+  store.set('onlineParkedDir', '')
   store.set('config', { ...store.get('config'), onlineSafeMode: false })
   return { active: false, moved: [] }
 }

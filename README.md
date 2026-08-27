@@ -20,8 +20,10 @@ Import mods once, toggle them on and off, and get a clean uninstall every time.
   files are backed up, disabling or removing a mod restores the originals.
 - **Online-safe mode** — one toggle moves every mod loader (`dinput8`/`version`/
   `winmm.dll`, `ScriptHookV.dll`, every root `.asi`, and the `mods/` `scripts/`
-  `plugins/` folders) **out of the game directory** into `%APPDATA%`, leaving the
-  folder byte-identical to vanilla. Toggle back to restore.
+  `plugins/` folders) **out of the game directory** into a
+  `GTAV Mod Manager (parked mods)` folder right next to it (same drive, so the
+  move is instant), leaving the game folder byte-identical to vanilla. Toggle
+  back to restore, and the parked folder is removed when empty.
 - **Adopt existing mods** — scans the game folder for mods installed by hand or
   another tool and pulls them into the library.
 - **Profiles** — named mod loadouts you switch between in one click.
