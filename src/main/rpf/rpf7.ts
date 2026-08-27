@@ -191,7 +191,8 @@ export class Rpf7 {
     if (e.encrypted) {
       if (this.encryption === 'NG') {
         if (!this.keys.ng) throw new Error('File is NG-encrypted but NG keys are unavailable.')
-        data = decryptNg(data, e.name, readLen, this.keys.ng)
+        // ExtractFileBinary decrypts NG with FileUncompressedSize as the length.
+        data = decryptNg(data, e.name, e.uncompressedSize, this.keys.ng)
       } else {
         if (!this.keys.aes) throw new Error('File is encrypted but no key is available.')
         data = aesDecrypt(data, this.keys.aes)
@@ -328,8 +329,10 @@ function parseEntries(
         childCount: entries.readUInt32LE(o + 12),
       })
     } else if ((w1 & 0x80000000) === 0) {
+      // RpfBinaryFileEntry: [nameOffset:16 | fileSize:24 | fileOffset:24] as a
+      // u64, then word2 = FileUncompressedSize (full), word3 = EncryptionType.
       const nameOffset = w0 & 0xffff
-      const sizeOnDisk = (w0 >>> 16) | ((w1 & 0xff) << 16)
+      const sizeOnDisk = ((w0 >>> 16) | ((w1 & 0xff) << 16)) & 0xffffff
       const offsetSectors = (w1 >>> 8) & 0xffffff
       raw.push({
         isDir: false,
@@ -337,8 +340,8 @@ function parseEntries(
         name: nameAt(nameOffset),
         sizeOnDisk,
         offset: offsetSectors * SECTOR,
-        uncompressedSize: w2 & 0xffffff,
-        encrypted: ((w2 >>> 24) & 0xff) !== 0,
+        uncompressedSize: w2 >>> 0,
+        encrypted: (entries.readUInt32LE(o + 12) >>> 0) !== 0,
       })
     } else {
       // resource file — enough to locate, not to rewrite
@@ -419,9 +422,8 @@ function writeBinaryEntry(
   const o = index * 16
   const w0 = (e.nameOffset & 0xffff) | ((e.sizeOnDisk & 0xffff) << 16)
   const w1 = ((e.sizeOnDisk >>> 16) & 0xff) | ((e.offsetSectors & 0xffffff) << 8)
-  const w2 = (e.uncompressedSize & 0xffffff) | ((e.encrypted ? 1 : 0) << 24)
   entries.writeUInt32LE(w0 >>> 0, o)
   entries.writeUInt32LE(w1 >>> 0, o + 4)
-  entries.writeUInt32LE(w2 >>> 0, o + 8)
-  entries.writeUInt32LE(0, o + 12)
+  entries.writeUInt32LE(e.uncompressedSize >>> 0, o + 8) // FileUncompressedSize
+  entries.writeUInt32LE(e.encrypted ? 1 : 0, o + 12) // EncryptionType
 }
