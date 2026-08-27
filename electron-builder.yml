@@ -1,0 +1,22 @@
+appId: com.lunatix.gtavmodmanager
+productName: GTAV Mod Manager
+copyright: Copyright © 2026 LeVraiLunatix
+directories:
+  buildResources: build
+  output: release/${version}
+files:
+  - out/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: GTAV Mod Manager
