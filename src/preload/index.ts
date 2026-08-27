@@ -43,6 +43,8 @@ const api = {
     validate: (path: string): Promise<GameInfo> => ipcRenderer.invoke(IPC.gameValidate, path),
     launch: (): Promise<LaunchReport> => ipcRenderer.invoke(IPC.gameLaunch),
     lastLaunch: (): Promise<LaunchReport | null> => ipcRenderer.invoke(IPC.gameLastLaunch),
+    recheckLaunch: (): Promise<LaunchReport | null> =>
+      ipcRenderer.invoke(IPC.gameRecheckLaunch),
   },
   mods: {
     list: (): Promise<Mod[]> => ipcRenderer.invoke(IPC.modsList),

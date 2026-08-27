@@ -13,6 +13,7 @@ export const IPC = {
   gameValidate: 'game:validate',
   gameLaunch: 'game:launch',
   gameLastLaunch: 'game:lastLaunch',
+  gameRecheckLaunch: 'game:recheckLaunch',
 
   // mod library
   modsList: 'mods:list',

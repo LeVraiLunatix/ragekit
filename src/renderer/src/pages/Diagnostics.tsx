@@ -15,29 +15,20 @@ import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge, EmptyState } from '@/components/ui'
 
-/** GTA5 crash codes are big unsigned hex values; small ones are plain. */
-function fmtExit(code: number): string {
-  if (code < 0) code = code >>> 0
-  return code > 255 ? `0x${code.toString(16).toUpperCase().padStart(8, '0')}` : String(code)
-}
-
 function LaunchCard({ report }: { report: LaunchReport }): ReactNode {
   const { t, relative } = useI18n()
   const [showOut, setShowOut] = useState(false)
 
-  const outcome: { tone: 'good' | 'bad' | 'neutral'; icon: ReactNode; label: string } = report
-    .spawnError
+  const outcome: { tone: 'good' | 'bad' | 'warn'; icon: ReactNode; label: string } = report.spawnError
     ? { tone: 'bad', icon: <XCircle className="size-3" />, label: t('launch.failed') }
     : report.stillRunning
-      ? { tone: 'good', icon: <CheckCircle2 className="size-3" />, label: t('launch.ok') }
-      : report.exitCode === 0
-        ? { tone: 'neutral', icon: <CheckCircle2 className="size-3" />, label: t('launch.cleanExit') }
-        : {
-            tone: 'bad',
-            icon: <XCircle className="size-3" />,
-            label: t('launch.crashed', { code: fmtExit(report.exitCode ?? 0) }),
-          }
+      ? { tone: 'good', icon: <CheckCircle2 className="size-3" />, label: t('launch.running') }
+      : report.crashEvents.length > 0
+        ? { tone: 'bad', icon: <XCircle className="size-3" />, label: t('launch.crashedEarly') }
+        : { tone: 'warn', icon: <AlertTriangle className="size-3" />, label: t('launch.notStarted') }
 
+  const notStarted =
+    !report.spawnError && !report.stillRunning && report.crashEvents.length === 0
   const hasOutput = report.stdout.length > 0 || report.stderr.length > 0
 
   return (
@@ -56,6 +47,12 @@ function LaunchCard({ report }: { report: LaunchReport }): ReactNode {
       {report.spawnError && (
         <p className="mt-2 rounded-lg border border-bad/25 bg-bad/10 px-3 py-2 font-mono text-[11px] text-bad">
           {report.spawnError}
+        </p>
+      )}
+
+      {notStarted && (
+        <p className="mt-2 rounded-lg border border-warn/25 bg-warn/10 px-3 py-2 text-[12px] text-warn">
+          {t('launch.notStartedHint')}
         </p>
       )}
 
@@ -87,12 +84,7 @@ function LaunchCard({ report }: { report: LaunchReport }): ReactNode {
             </li>
           ))}
         </ul>
-      ) : (
-        !report.stillRunning &&
-        report.exitCode !== 0 && (
-          <p className="mt-2 text-[12px] text-ink-faint">{t('launch.noCrashEvents')}</p>
-        )
-      )}
+      ) : null}
 
       {hasOutput && (
         <div className="mt-2">
@@ -127,7 +119,12 @@ export function DiagnosticsPage(): ReactNode {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setFiles(await window.api.diagnostics.read())
+      const [f, relaunch] = await Promise.all([
+        window.api.diagnostics.read(),
+        window.api.game.recheckLaunch(),
+      ])
+      setFiles(f)
+      if (relaunch) useAppStore.setState({ lastLaunch: relaunch })
     } finally {
       setLoading(false)
     }
@@ -135,7 +132,8 @@ export function DiagnosticsPage(): ReactNode {
 
   useEffect(() => {
     if (game?.valid) void load()
-  }, [game?.valid, load, lastLaunch])
+    // re-run when a *new* launch happens, not on every recheck merge
+  }, [game?.valid, load, lastLaunch?.startedAt])
 
   if (!game?.valid) {
     return (

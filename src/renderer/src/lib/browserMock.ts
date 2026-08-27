@@ -74,6 +74,7 @@ if (typeof window !== 'undefined' && !window.api) {
       validate: async (path) => ({ path, platform: 'manual' as const, valid: true }),
       launch: async () => mockLaunch,
       lastLaunch: async () => mockLaunch,
+      recheckLaunch: async () => mockLaunch,
     },
     mods: {
       list: async () => [],
