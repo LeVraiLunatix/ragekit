@@ -17,7 +17,14 @@ import {
   fileConflicts,
 } from './mods/library'
 import { scanUnmanaged, adoptFound } from './mods/scan'
-import { setOnlineSafeMode, isGameRunning } from './online'
+import {
+  setOnlineSafeMode,
+  isGameRunning,
+  buildVanillaIndex,
+  scanNonVanilla,
+  getOnlineStatus,
+  clearVanillaIndex,
+} from './online'
 import { readDiagnostics } from './diagnostics'
 import { takeSnapshot, verifySnapshot, clearSnapshot } from './integrity'
 import { fetchModInfo, installFromRemote, checkModUpdates } from './gta5mods'
@@ -203,6 +210,37 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.onlineGameRunning, () => isGameRunning())
+
+  ipcMain.handle(IPC.onlineStatus, () => getOnlineStatus())
+
+  ipcMain.handle(IPC.onlineScan, () => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    return scanNonVanilla()
+  })
+
+  ipcMain.handle(IPC.onlineBuildIndex, async () => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    const taskId = 'online:index'
+    const res = await guardGameWrite(() =>
+      buildVanillaIndex((_done, label) => {
+        broadcast(IPC.evtTaskProgress, { taskId, label, progress: null, done: false })
+      }),
+    )
+    broadcast(IPC.evtTaskProgress, {
+      taskId,
+      label: `${res.count} files`,
+      progress: 1,
+      done: true,
+    })
+    return getOnlineStatus()
+  })
+
+  ipcMain.handle(IPC.onlineClearIndex, () => {
+    clearVanillaIndex()
+    return getOnlineStatus()
+  })
 
   ipcMain.handle(IPC.diagnosticsRead, () => {
     const game = getConfig().game

@@ -2,7 +2,7 @@ import { app } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join, dirname } from 'node:path'
 import Store from 'electron-store'
-import type { AppConfig, Mod, Profile, VanillaSnapshot } from '@shared/types'
+import type { AppConfig, Mod, Profile, VanillaSnapshot, VanillaIndex } from '@shared/types'
 import { pathExists, movePath } from './mods/fsutil'
 
 interface Schema {
@@ -11,9 +11,13 @@ interface Schema {
   profiles: Profile[]
   /** Files renamed aside by online-safe mode, as game-relative paths. */
   onlineMoved: string[]
+  /** Top-level entries (files/dirs) removed on enable — for the UI summary. */
+  onlineMovedTop: string[]
   /** Absolute path of the folder those files were parked in (set on enable). */
   onlineParkedDir: string
   vanillaSnapshot: VanillaSnapshot | null
+  /** Full manifest of a clean install — drives the online-safe "remove all" sweep. */
+  vanillaIndex: VanillaIndex | null
   /** Cached GTA5.exe RPF AES key: { tag: <exe size>, hex } */
   rpfAesKey: { tag: string; hex: string } | null
   /** User-provided NG key file (CodeWalker Key.dat or equivalent). */
@@ -33,8 +37,10 @@ const defaults: Schema = {
   mods: [],
   profiles: [{ id: 'default', name: 'Default', enabledMods: [] }],
   onlineMoved: [],
+  onlineMovedTop: [],
   onlineParkedDir: '',
   vanillaSnapshot: null,
+  vanillaIndex: null,
   rpfAesKey: null,
   ngKeysPath: '',
 }

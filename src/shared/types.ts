@@ -179,6 +179,47 @@ export interface IntegrityReport {
   extra: string[]
 }
 
+/** Full manifest of a clean GTA V install — every game-relative file path. */
+export interface VanillaIndex {
+  takenAt: string
+  gameVersion?: string
+  count: number
+  /** Lowercased, forward-slash game-relative file paths, sorted. */
+  files: string[]
+}
+
+/** One mod file/folder found in the game folder by the online-safe scan. */
+export interface ScannedMod {
+  /** Game-relative path (original case). */
+  rel: string
+  isDir: boolean
+  kind: 'loader' | 'asi' | 'dll' | 'script' | 'log' | 'folder' | 'file'
+  /** Total bytes (folder = sum of contents). */
+  size: number
+  /** Files under this entry, game-relative — what actually gets moved. */
+  files: string[]
+}
+
+export interface NonVanillaScan {
+  /** True when the scan compared against a real vanilla index. */
+  usingIndex: boolean
+  items: ScannedMod[]
+  /** Stock files whose hash/size drifted (modded in place) — cannot be parked. */
+  modifiedStock: string[]
+  totalFiles: number
+  totalBytes: number
+}
+
+export interface OnlineStatus {
+  safe: boolean
+  hasIndex: boolean
+  indexTakenAt?: string
+  indexCount?: number
+  indexGameVersion?: string
+  /** Files currently parked away by online-safe mode. */
+  parkedCount: number
+}
+
 /** A mod page fetched from GTA5-Mods.com. */
 export interface RemoteMod {
   url: string

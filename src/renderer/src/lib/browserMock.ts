@@ -159,9 +159,29 @@ if (typeof window !== 'undefined' && !window.api) {
     online: {
       setMode: async (active) => {
         config = { ...config, onlineSafeMode: active }
-        return { active, moved: [] }
+        return { active, moved: active ? ['dinput8.dll', 'ScriptHookV.dll', 'mods', 'scripts'] : [] }
       },
       isGameRunning: async () => false,
+      status: async () => ({
+        safe: !!config.onlineSafeMode,
+        hasIndex: false,
+        parkedCount: config.onlineSafeMode ? 4 : 0,
+      }),
+      scan: async () => ({
+        usingIndex: false,
+        items: [
+          { rel: 'dinput8.dll', isDir: false, kind: 'loader' as const, size: 210000, files: ['dinput8.dll'] },
+          { rel: 'ScriptHookV.dll', isDir: false, kind: 'dll' as const, size: 900000, files: ['ScriptHookV.dll'] },
+          { rel: 'OpenIV.asi', isDir: false, kind: 'asi' as const, size: 1200000, files: ['OpenIV.asi'] },
+          { rel: 'mods', isDir: true, kind: 'folder' as const, size: 5_000_000_000, files: ['mods/update/update.rpf'] },
+          { rel: 'scripts', isDir: true, kind: 'folder' as const, size: 40_000_000, files: ['scripts/Menyoo.asi'] },
+        ],
+        modifiedStock: [],
+        totalFiles: 5,
+        totalBytes: 5_042_310_000,
+      }),
+      buildIndex: async () => ({ safe: !!config.onlineSafeMode, hasIndex: true, indexTakenAt: new Date().toISOString(), indexCount: 94213, parkedCount: 0 }),
+      clearIndex: async () => ({ safe: !!config.onlineSafeMode, hasIndex: false, parkedCount: 0 }),
     },
     system: {
       writable: async () => ({ elevated: true, gamePath: null, gameWritable: true }),

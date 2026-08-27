@@ -41,6 +41,10 @@ export const IPC = {
   // online-safe mode
   onlineSetMode: 'online:setMode',
   onlineGameRunning: 'online:gameRunning',
+  onlineStatus: 'online:status',
+  onlineScan: 'online:scan',
+  onlineBuildIndex: 'online:buildIndex',
+  onlineClearIndex: 'online:clearIndex',
 
   // diagnostics
   diagnosticsRead: 'diagnostics:read',

@@ -17,6 +17,8 @@ import type {
   TaskProgress,
   UpdateInfo,
   VanillaSnapshot,
+  OnlineStatus,
+  NonVanillaScan,
 } from '@shared/types'
 
 export interface FileConflict {
@@ -108,6 +110,10 @@ const api = {
     setMode: (active: boolean): Promise<{ active: boolean; moved: string[] }> =>
       ipcRenderer.invoke(IPC.onlineSetMode, active),
     isGameRunning: (): Promise<boolean> => ipcRenderer.invoke(IPC.onlineGameRunning),
+    status: (): Promise<OnlineStatus> => ipcRenderer.invoke(IPC.onlineStatus),
+    scan: (): Promise<NonVanillaScan> => ipcRenderer.invoke(IPC.onlineScan),
+    buildIndex: (): Promise<OnlineStatus> => ipcRenderer.invoke(IPC.onlineBuildIndex),
+    clearIndex: (): Promise<OnlineStatus> => ipcRenderer.invoke(IPC.onlineClearIndex),
   },
   system: {
     writable: (): Promise<{
