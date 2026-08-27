@@ -1,12 +1,13 @@
 import { promises as fs } from 'node:fs'
 import { deflateRawSync, inflateRawSync } from 'node:zlib'
+import type { RpfEncryption } from '@shared/types'
 import { aesDecrypt, aesEncrypt } from './crypto'
 
 const RPF7_MAGIC = 0x52504637
 const DIR_IDENT = 0x7fffff00
 const SECTOR = 512
 
-export type RpfEncryption = 'NONE' | 'OPEN' | 'AES' | 'NG' | 'UNKNOWN'
+export type { RpfEncryption }
 
 function encName(v: number): RpfEncryption {
   if (v === 0 || v === 0x4e4f4e45) return 'NONE'
@@ -34,9 +35,11 @@ function alignUp(n: number, to: number): number {
   return Math.ceil(n / to) * to
 }
 
+type Source = { kind: 'file'; path: string } | { kind: 'buffer'; data: Buffer; label: string }
+
 export class Rpf7 {
   private constructor(
-    readonly filePath: string,
+    private source: Source,
     readonly encryption: RpfEncryption,
     readonly entryCount: number,
     readonly namesLength: number,
@@ -47,81 +50,130 @@ export class Rpf7 {
     private byPath: Map<string, RpfEntry>,
   ) {}
 
+  get label(): string {
+    return this.source.kind === 'file' ? this.source.path : this.source.label
+  }
+
+  get writable(): boolean {
+    return this.source.kind === 'file'
+  }
+
+  private static parse(
+    head16: Buffer,
+    toc: Buffer,
+    key: Buffer | null,
+    label: string,
+  ): {
+    encryption: RpfEncryption
+    entryCount: number
+    namesLength: number
+    entriesBuf: Buffer
+    namesBuf: Buffer
+    entries: RpfEntry[]
+    byPath: Map<string, RpfEntry>
+  } {
+    if (head16.readUInt32LE(0) !== RPF7_MAGIC) throw new Error(`${label} is not an RPF7 archive.`)
+    const entryCount = head16.readUInt32LE(4)
+    const namesLength = head16.readUInt32LE(8)
+    const encryption = encName(head16.readUInt32LE(12))
+    if (encryption === 'NG' || encryption === 'UNKNOWN') {
+      throw new Error(`RPF encryption "${encryption}" is not supported.`)
+    }
+    const tocLen = entryCount * 16 + namesLength
+    let plain: Buffer = toc.subarray(0, tocLen)
+    if (encryption === 'AES') {
+      if (!key) throw new Error('This RPF is AES-encrypted but no key was provided.')
+      plain = aesDecrypt(Buffer.from(plain), key)
+    }
+    const entriesBuf = Buffer.from(plain.subarray(0, entryCount * 16))
+    const namesBuf = Buffer.from(plain.subarray(entryCount * 16, tocLen))
+    if (entryCount === 0 || entriesBuf.readUInt32LE(4) !== DIR_IDENT) {
+      throw new Error(`${label}: table of contents did not decode (encryption "${encryption}").`)
+    }
+    const { entries, byPath } = parseEntries(entriesBuf, namesBuf, entryCount)
+    return { encryption, entryCount, namesLength, entriesBuf, namesBuf, entries, byPath }
+  }
+
   static async open(filePath: string, key: Buffer | null): Promise<Rpf7> {
     const fd = await fs.open(filePath, 'r')
     try {
-      const header = Buffer.alloc(16)
-      await fd.read(header, 0, 16, 0)
-      if (header.readUInt32LE(0) !== RPF7_MAGIC) {
-        throw new Error(`${filePath} is not an RPF7 archive.`)
-      }
-      const entryCount = header.readUInt32LE(4)
-      const namesLength = header.readUInt32LE(8)
-      const encryption = encName(header.readUInt32LE(12))
-      if (encryption === 'NG' || encryption === 'UNKNOWN') {
-        throw new Error(`RPF encryption "${encryption}" is not supported.`)
-      }
-
-      const tocLen = entryCount * 16 + namesLength
-      const toc = Buffer.alloc(tocLen)
-      await fd.read(toc, 0, tocLen, 16)
-
-      let plain: Buffer = toc
-      if (encryption === 'AES') {
-        if (!key) throw new Error('This RPF is AES-encrypted but no key was provided.')
-        plain = aesDecrypt(toc, key)
-      }
-
-      const entriesBuf = Buffer.from(plain.subarray(0, entryCount * 16))
-      const namesBuf = Buffer.from(plain.subarray(entryCount * 16, tocLen))
-
-      // Sanity: entry 0 must be the root directory. If not, the TOC did not
-      // decrypt cleanly (wrong key / unexpected format) — bail before we act.
-      if (entryCount === 0 || entriesBuf.readUInt32LE(4) !== DIR_IDENT) {
-        throw new Error(
-          `${filePath}: table of contents did not decode (encryption "${encryption}").`,
-        )
-      }
-
-      const { entries, byPath } = parseEntries(entriesBuf, namesBuf, entryCount)
-
+      const head16 = Buffer.alloc(16)
+      await fd.read(head16, 0, 16, 0)
+      const entryCount = head16.readUInt32LE(4)
+      const namesLength = head16.readUInt32LE(8)
+      const toc = Buffer.alloc(entryCount * 16 + namesLength)
+      await fd.read(toc, 0, toc.length, 16)
+      const p = Rpf7.parse(head16, toc, key, filePath)
       return new Rpf7(
-        filePath,
-        encryption,
-        entryCount,
-        namesLength,
-        entriesBuf,
-        namesBuf,
+        { kind: 'file', path: filePath },
+        p.encryption,
+        p.entryCount,
+        p.namesLength,
+        p.entriesBuf,
+        p.namesBuf,
         key,
-        entries,
-        byPath,
+        p.entries,
+        p.byPath,
       )
     } finally {
       await fd.close()
     }
   }
 
+  static fromBuffer(data: Buffer, key: Buffer | null, label: string): Rpf7 {
+    const head16 = data.subarray(0, 16)
+    const entryCount = head16.readUInt32LE(4)
+    const namesLength = head16.readUInt32LE(8)
+    const toc = data.subarray(16, 16 + entryCount * 16 + namesLength)
+    const p = Rpf7.parse(head16, toc, key, label)
+    return new Rpf7(
+      { kind: 'buffer', data, label },
+      p.encryption,
+      p.entryCount,
+      p.namesLength,
+      p.entriesBuf,
+      p.namesBuf,
+      key,
+      p.entries,
+      p.byPath,
+    )
+  }
+
   get(innerPath: string): RpfEntry | undefined {
     return this.byPath.get(innerPath.replace(/\\/g, '/').toLowerCase())
   }
 
-  async readFile(innerPath: string): Promise<Buffer> {
-    const e = this.get(innerPath)
-    if (!e || e.isDir) throw new Error(`${innerPath} not found in ${this.filePath}`)
-    const fd = await fs.open(this.filePath, 'r')
+  private async readRaw(offset: number, len: number): Promise<Buffer> {
+    if (this.source.kind === 'buffer') {
+      return Buffer.from(this.source.data.subarray(offset, offset + len))
+    }
+    const fd = await fs.open(this.source.path, 'r')
     try {
-      const readLen = e.sizeOnDisk > 0 ? e.sizeOnDisk : e.uncompressedSize
-      let data: Buffer = Buffer.alloc(readLen)
-      await fd.read(data, 0, readLen, e.offset)
-      if (e.encrypted) {
-        if (!this.key) throw new Error('File is encrypted but no key is available.')
-        data = aesDecrypt(data, this.key)
-      }
-      if (e.sizeOnDisk > 0) data = inflateRawSync(data.subarray(0, e.sizeOnDisk))
-      return data.subarray(0, e.uncompressedSize)
+      const out = Buffer.alloc(len)
+      await fd.read(out, 0, len, offset)
+      return out
     } finally {
       await fd.close()
     }
+  }
+
+  async readFile(innerPath: string): Promise<Buffer> {
+    const e = this.get(innerPath)
+    if (!e || e.isDir) throw new Error(`${innerPath} not found in ${this.label}`)
+    const readLen = e.sizeOnDisk > 0 ? e.sizeOnDisk : e.uncompressedSize
+    let data: Buffer = await this.readRaw(e.offset, readLen)
+    if (e.encrypted) {
+      if (!this.key) throw new Error('File is encrypted but no key is available.')
+      data = aesDecrypt(data, this.key)
+    }
+    if (e.sizeOnDisk > 0) data = inflateRawSync(data.subarray(0, e.sizeOnDisk))
+    return data.subarray(0, e.uncompressedSize)
+  }
+
+  /** Open a `.rpf` nested inside this one (read-only). */
+  async openNested(innerPath: string): Promise<Rpf7> {
+    const bytes = await this.readFile(innerPath)
+    return Rpf7.fromBuffer(bytes, this.key, `${this.label}/${innerPath}`)
   }
 
   /**
@@ -130,6 +182,9 @@ export class Rpf7 {
    * The archive grows by a few sectors. Only same-name replacement is supported.
    */
   async replaceFile(innerPath: string, content: Buffer): Promise<void> {
+    if (this.source.kind !== 'file') {
+      throw new Error('This archive is nested and cannot be edited in place.')
+    }
     const e = this.get(innerPath)
     if (!e || e.isDir) throw new Error(`${innerPath} not found`)
     if (e.isResource) throw new Error('Refusing to rewrite a resource file.')
@@ -140,7 +195,7 @@ export class Rpf7 {
     const payload = useCompressed ? compressed : content
     const sizeOnDisk = useCompressed ? compressed.length : 0
 
-    const fd = await fs.open(this.filePath, 'r+')
+    const fd = await fs.open(this.source.path, 'r+')
     try {
       const stat = await fd.stat()
       const newOffset = alignUp(stat.size, SECTOR)

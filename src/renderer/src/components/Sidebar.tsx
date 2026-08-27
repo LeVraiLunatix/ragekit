@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react'
-import { Boxes, PlusCircle, Layers, Puzzle, Stethoscope, Settings, FolderOpen } from 'lucide-react'
+import {
+  Boxes,
+  PlusCircle,
+  Layers,
+  Archive,
+  Puzzle,
+  Stethoscope,
+  Settings,
+  FolderOpen,
+} from 'lucide-react'
 import { useAppStore, type Route } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -8,6 +17,7 @@ const ITEMS: Array<{ id: Route; key: string; icon: ReactNode }> = [
   { id: 'library', key: 'nav.library', icon: <Boxes className="size-4" /> },
   { id: 'add', key: 'nav.add', icon: <PlusCircle className="size-4" /> },
   { id: 'profiles', key: 'nav.profiles', icon: <Layers className="size-4" /> },
+  { id: 'archives', key: 'nav.archives', icon: <Archive className="size-4" /> },
   { id: 'dependencies', key: 'nav.dependencies', icon: <Puzzle className="size-4" /> },
   { id: 'diagnostics', key: 'nav.diagnostics', icon: <Stethoscope className="size-4" /> },
   { id: 'settings', key: 'nav.settings', icon: <Settings className="size-4" /> },

@@ -22,6 +22,15 @@ import { readDiagnostics } from './diagnostics'
 import { takeSnapshot, verifySnapshot, clearSnapshot } from './integrity'
 import { fetchModInfo, installFromRemote, checkModUpdates } from './gta5mods'
 import {
+  listArchives,
+  openArchive,
+  extractEntry,
+  readEntryText,
+  replaceEntry,
+  copyArchiveToMods,
+} from './rpf/browser'
+import { basename } from 'node:path'
+import {
   listProfiles,
   createProfile,
   renameProfile,
@@ -208,6 +217,50 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.integrityClear, () => clearSnapshot())
+
+  ipcMain.handle(IPC.rpfList, () => {
+    const game = getConfig().game
+    if (!game?.valid) return []
+    return listArchives(game.path)
+  })
+
+  ipcMain.handle(IPC.rpfOpen, (_e, chain: string[]) => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    return openArchive(game.path, chain)
+  })
+
+  ipcMain.handle(IPC.rpfReadText, (_e, chain: string[], innerPath: string) => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    return readEntryText(game.path, chain, innerPath)
+  })
+
+  ipcMain.handle(IPC.rpfExtract, async (_e, chain: string[], innerPath: string) => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const res = await dialog.showSaveDialog(win!, { defaultPath: basename(innerPath) })
+    if (res.canceled || !res.filePath) return false
+    await extractEntry(game.path, chain, innerPath, res.filePath)
+    return true
+  })
+
+  ipcMain.handle(IPC.rpfReplace, async (_e, chain: string[], innerPath: string) => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const res = await dialog.showOpenDialog(win!, { properties: ['openFile'] })
+    if (res.canceled || !res.filePaths[0]) return false
+    await replaceEntry(game.path, chain, innerPath, res.filePaths[0])
+    return true
+  })
+
+  ipcMain.handle(IPC.rpfCopyToMods, (_e, rel: string) => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    return copyArchiveToMods(game.path, rel)
+  })
 
   ipcMain.handle(IPC.remoteFetch, (_e, url: string) => fetchModInfo(url))
 

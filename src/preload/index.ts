@@ -13,6 +13,8 @@ import type {
   Mod,
   Profile,
   RemoteMod,
+  RpfArchiveInfo,
+  RpfOpened,
   TaskProgress,
   UpdateInfo,
   VanillaSnapshot,
@@ -80,6 +82,17 @@ const api = {
     take: (): Promise<VanillaSnapshot> => ipcRenderer.invoke(IPC.integrityTake),
     verify: (): Promise<IntegrityReport> => ipcRenderer.invoke(IPC.integrityVerify),
     clear: (): Promise<void> => ipcRenderer.invoke(IPC.integrityClear),
+  },
+  rpf: {
+    list: (): Promise<RpfArchiveInfo[]> => ipcRenderer.invoke(IPC.rpfList),
+    open: (chain: string[]): Promise<RpfOpened> => ipcRenderer.invoke(IPC.rpfOpen, chain),
+    readText: (chain: string[], innerPath: string): Promise<string> =>
+      ipcRenderer.invoke(IPC.rpfReadText, chain, innerPath),
+    extract: (chain: string[], innerPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.rpfExtract, chain, innerPath),
+    replace: (chain: string[], innerPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.rpfReplace, chain, innerPath),
+    copyToMods: (rel: string): Promise<string> => ipcRenderer.invoke(IPC.rpfCopyToMods, rel),
   },
   remote: {
     fetch: (url: string): Promise<RemoteMod> => ipcRenderer.invoke(IPC.remoteFetch, url),

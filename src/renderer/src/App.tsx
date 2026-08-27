@@ -2,12 +2,14 @@ import { useEffect, type ReactNode } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { I18nProvider, useI18n } from '@/i18n'
+import { PromptProvider } from '@/components/PromptDialog'
 import { TitleBar } from '@/components/TitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
 import { LibraryPage } from '@/pages/Library'
 import { AddModsPage } from '@/pages/AddMods'
 import { ProfilesPage } from '@/pages/Profiles'
+import { ArchivesPage } from '@/pages/Archives'
 import { DependenciesPage } from '@/pages/Dependencies'
 import { DiagnosticsPage } from '@/pages/Diagnostics'
 import { SettingsPage } from '@/pages/Settings'
@@ -37,6 +39,7 @@ function Shell(): ReactNode {
           {route === 'library' && <LibraryPage />}
           {route === 'add' && <AddModsPage />}
           {route === 'profiles' && <ProfilesPage />}
+          {route === 'archives' && <ArchivesPage />}
           {route === 'dependencies' && <DependenciesPage />}
           {route === 'diagnostics' && <DiagnosticsPage />}
           {route === 'settings' && <SettingsPage />}
@@ -62,15 +65,17 @@ export default function App(): ReactNode {
 
   return (
     <I18nProvider>
-      {!ready || !config ? (
-        <div className="flex h-full items-center justify-center gap-2 text-ink-faint">
-          <Spinner />
-        </div>
-      ) : !config.onboarded ? (
-        <Onboarding />
-      ) : (
-        <Shell />
-      )}
+      <PromptProvider>
+        {!ready || !config ? (
+          <div className="flex h-full items-center justify-center gap-2 text-ink-faint">
+            <Spinner />
+          </div>
+        ) : !config.onboarded ? (
+          <Onboarding />
+        ) : (
+          <Shell />
+        )}
+      </PromptProvider>
     </I18nProvider>
   )
 }

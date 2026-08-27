@@ -17,6 +17,7 @@ if (typeof window !== 'undefined' && !window.api) {
     theme: 'dark',
   }
   const noop = (): void => {}
+  let mockProfiles: Array<{ id: string; name: string; enabledMods: string[] }> = []
 
   const mock: Api = {
     config: {
@@ -57,12 +58,26 @@ if (typeof window !== 'undefined' && !window.api) {
       adopt: async () => [],
     },
     profiles: {
-      list: async () => [],
-      create: async (name: string) => ({ id: 'p', name, enabledMods: [] }),
-      rename: async (id: string, name: string) => ({ id, name, enabledMods: [] }),
-      remove: async () => {},
-      capture: async (id: string) => ({ id, name: 'p', enabledMods: [] }),
-      setMods: async (id: string, modIds: string[]) => ({ id, name: 'p', enabledMods: modIds }),
+      list: async () => mockProfiles,
+      create: async (name: string) => {
+        const p = { id: `p${Date.now()}`, name, enabledMods: [] as string[] }
+        mockProfiles.push(p)
+        return p
+      },
+      rename: async (id: string, name: string) => {
+        const p = mockProfiles.find((x) => x.id === id)!
+        p.name = name
+        return p
+      },
+      remove: async (id: string) => {
+        mockProfiles = mockProfiles.filter((x) => x.id !== id)
+      },
+      capture: async (id: string) => mockProfiles.find((x) => x.id === id)!,
+      setMods: async (id: string, modIds: string[]) => {
+        const p = mockProfiles.find((x) => x.id === id)!
+        p.enabledMods = modIds
+        return p
+      },
       apply: async () => {},
     },
     deps: { status: async () => [] },
@@ -71,6 +86,26 @@ if (typeof window !== 'undefined' && !window.api) {
       take: async () => ({ takenAt: new Date().toISOString(), entries: [] }),
       verify: async () => ({ hasSnapshot: false, ok: true, changed: [], missing: [], extra: [] }),
       clear: async () => {},
+    },
+    rpf: {
+      list: async () => [
+        { rel: 'update/update.rpf', sizeBytes: 1258291200, encryption: 'AES' as const, inMods: false },
+        { rel: 'x64a.rpf', sizeBytes: 2147483648, encryption: 'AES' as const, inMods: false },
+        { rel: 'mods/update/update.rpf', sizeBytes: 1258291200, encryption: 'AES' as const, inMods: true },
+      ],
+      open: async () => ({
+        encryption: 'AES' as const,
+        writable: true,
+        nodes: [
+          { name: 'common', path: 'common', isDir: true, isResource: false, isNestedRpf: false, size: 0 },
+          { name: 'x64', path: 'x64', isDir: true, isResource: false, isNestedRpf: false, size: 0 },
+          { name: 'dlc.rpf', path: 'dlc.rpf', isDir: false, isResource: false, isNestedRpf: true, size: 5242880 },
+        ],
+      }),
+      readText: async () => '<?xml version="1.0"?>\n<Example>mock</Example>',
+      extract: async () => true,
+      replace: async () => true,
+      copyToMods: async (rel: string) => `mods/${rel}`,
     },
     remote: {
       fetch: async (url: string) => ({

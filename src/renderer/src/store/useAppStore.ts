@@ -9,7 +9,14 @@ import type {
 } from '@shared/types'
 import type { FileConflict } from '../../../preload'
 
-export type Route = 'library' | 'add' | 'profiles' | 'dependencies' | 'diagnostics' | 'settings'
+export type Route =
+  | 'library'
+  | 'add'
+  | 'profiles'
+  | 'archives'
+  | 'dependencies'
+  | 'diagnostics'
+  | 'settings'
 
 interface AppState {
   ready: boolean

@@ -5,10 +5,12 @@ import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge, EmptyState } from '@/components/ui'
+import { usePrompt } from '@/components/PromptDialog'
 import { cn } from '@/lib/utils'
 
 function ProfileCard({ profile }: { profile: Profile }): ReactNode {
   const { t, tc } = useI18n()
+  const promptText = usePrompt()
   const { mods, config, refreshProfiles, refreshMods } = useAppStore()
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState<null | 'apply' | 'other'>(null)
@@ -73,8 +75,11 @@ function ProfileCard({ profile }: { profile: Profile }): ReactNode {
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => {
-            const name = window.prompt(t('profiles.rename'), profile.name)
+          onClick={async () => {
+            const name = await promptText({
+              title: t('profiles.rename'),
+              initial: profile.name,
+            })
             if (name) void run(() => window.api.profiles.rename(profile.id, name))
           }}
         >
@@ -125,11 +130,15 @@ function ProfileCard({ profile }: { profile: Profile }): ReactNode {
 
 export function ProfilesPage(): ReactNode {
   const { t } = useI18n()
+  const promptText = usePrompt()
   const { profiles, mods, refreshProfiles } = useAppStore()
   const [creating, setCreating] = useState(false)
 
   const create = async (): Promise<void> => {
-    const name = window.prompt(t('profiles.createPrompt'))
+    const name = await promptText({
+      title: t('profiles.createPrompt'),
+      placeholder: t('profiles.title'),
+    })
     if (!name) return
     setCreating(true)
     try {

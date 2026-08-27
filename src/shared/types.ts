@@ -123,6 +123,30 @@ export interface ImportResult {
   plan: InstallPlan
 }
 
+export type RpfEncryption = 'NONE' | 'OPEN' | 'AES' | 'NG' | 'UNKNOWN'
+
+export interface RpfArchiveInfo {
+  rel: string
+  sizeBytes: number
+  encryption: RpfEncryption
+  inMods: boolean
+}
+
+export interface RpfNode {
+  name: string
+  path: string
+  isDir: boolean
+  isResource: boolean
+  isNestedRpf: boolean
+  size: number
+}
+
+export interface RpfOpened {
+  encryption: RpfEncryption
+  writable: boolean
+  nodes: RpfNode[]
+}
+
 export interface SnapshotEntry {
   rel: string
   size: number

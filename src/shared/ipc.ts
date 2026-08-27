@@ -49,6 +49,14 @@ export const IPC = {
   integrityVerify: 'integrity:verify',
   integrityClear: 'integrity:clear',
 
+  // RPF archive browser
+  rpfList: 'rpf:list',
+  rpfOpen: 'rpf:open',
+  rpfExtract: 'rpf:extract',
+  rpfReadText: 'rpf:readText',
+  rpfReplace: 'rpf:replace',
+  rpfCopyToMods: 'rpf:copyToMods',
+
   // GTA5-Mods.com
   remoteFetch: 'remote:fetch',
   remoteInstall: 'remote:install',
