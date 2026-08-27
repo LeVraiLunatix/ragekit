@@ -9,21 +9,37 @@ import type { NonVanillaScan, OnlineStatus, ScannedMod, VanillaIndex } from '@sh
 const execFileAsync = promisify(execFile)
 
 /**
- * Online-safe mode, "GTA V Mod Remove Tool" style. With a vanilla file index (a
- * manifest of a clean install), the switch moves EVERYTHING at the game root
- * that isn't in it out of the folder — not just the known loaders — so GTA
- * Online sees a byte-identical vanilla folder. Toggling back moves it all home.
+ * Online-safe mode, "GTA V Mod Remove Tool" style. It works off an ALLOWLIST of
+ * what a clean install has at its root — anything else (any .asi, .dll, .ini,
+ * .log, .bin, unknown folder…) is treated as a mod and moved out, so GTA Online
+ * sees a byte-identical vanilla folder. Toggling back moves it all home.
  *
- * Without an index we fall back to a broad heuristic (loaders, .asi, mod DLLs,
- * known mod folders and logs), which covers the common cases.
+ * A vanilla file *index* (captured from the user's own clean install) makes it
+ * exact; without one we use the built-in allowlist below, which is the same
+ * approach the Remove Tool takes with its curated per-patch list.
  *
  * Only the game *root* is swept: drop-in mods live at the root, in `mods/`,
  * `scripts/` or `plugins/`; RPF mods replace `x64*.rpf` / `update.rpf` at the
- * root too. We never descend into the stock `x64/` `update/` `common/` trees.
+ * root. We never descend into the stock `x64/` `update/` `common/` trees.
  */
 
-/** Stock root DLLs — anything else `*.dll` at the root is a loader / wrapper. */
-const STOCK_ROOT_DLL = new Set([
+/** Every file GTA V (Legacy + Enhanced, all launchers) ships at its root. */
+const STOCK_FILES = new Set([
+  // executables
+  'gta5.exe',
+  'gta5_enhanced.exe',
+  'gta5_enhanced_be.exe',
+  'gta5_be.exe',
+  'playgtav.exe',
+  'gtavlauncher.exe',
+  'gtavlanguageselect.exe',
+  'bugreport.exe',
+  'launcher.exe',
+  'launcher.patcher.exe',
+  'rockstarservice.exe',
+  'rockstarsteamhelper.exe',
+  'uninstall.exe',
+  // graphics / engine DLLs
   'bink2w64.dll',
   'bink2w64_enhanced.dll',
   'd3dcompiler_46.dll',
@@ -33,13 +49,61 @@ const STOCK_ROOT_DLL = new Set([
   'gfsdk_txaa.win64.dll',
   'gfsdk_txaa_alpharesolve.win64.dll',
   'nvpmapi.core.win64.dll',
-  'ffx_fsr2_api_x64.dll',
   'amd_ags_x64.dll',
+  'ffx_fsr2_api_x64.dll',
+  'ffx_fsr2_api_dx12_x64.dll',
   'nvngx_dlss.dll',
   'nvngx_dlssg.dll',
   'nvngx_dlssd.dll',
+  'xess.dll',
+  'libxess.dll',
+  'oo2core_5_win64.dll',
   'oo2core_9_win64.dll',
+  'gpuperfapidx11-x64.dll',
+  // Enhanced networking / voice stack
+  'libcurl.dll',
+  'xcurl.dll',
+  'zlib1.dll',
+  'opus.dll',
+  'opusenc.dll',
+  'fvad.dll',
+  'libsodium.dll',
+  'ssleay32.dll',
+  'libeay32.dll',
+  'discord_game_sdk.dll',
+  // data / config
+  'common.rpf',
+  'version.txt',
+  'index.bin',
+  'gta5.exe.cfg',
+  'gameinfo.txt',
+  'installscript.vdf',
+  'manifest.ares',
+  'gta5_dump.txt',
+  'x64.axf',
 ])
+
+/** Every folder a clean install has at its root. */
+const STOCK_DIRS = new Set([
+  'x64',
+  'update',
+  'common',
+  'readme',
+  'redistributables',
+  'installers',
+  'battleye',
+  'easyanticheat',
+  'launcher',
+  'ros',
+])
+
+/** `x64a.rpf` … `x64z.rpf`, `x64.rpf`. */
+const STOCK_RPF = /^x64[a-z]?\.rpf$/
+
+function isStockRoot(name: string, isDir: boolean): boolean {
+  const n = name.toLowerCase()
+  return isDir ? STOCK_DIRS.has(n) : STOCK_FILES.has(n) || STOCK_RPF.test(n)
+}
 
 /** Loader DLLs that hijack a DirectX/system name at the game root. */
 const LOADER_DLL = new Set([
@@ -54,19 +118,6 @@ const LOADER_DLL = new Set([
   'xinput1_3.dll',
   'xinput1_4.dll',
   'xlive.dll',
-])
-
-/** Known mod folders (used by the no-index heuristic). */
-const MOD_DIRS = new Set([
-  'mods',
-  'scripts',
-  'plugins',
-  'menyoostuff',
-  'customvehicles',
-  'addonpeds',
-  'liverypeds',
-  'vstancer',
-  'lml',
 ])
 
 /** Root logs a mod loader leaves behind. */
@@ -203,18 +254,13 @@ export async function scanNonVanilla(): Promise<NonVanillaScan> {
     if (norm(abs) === norm(dataRoot()) || norm(abs).startsWith(norm(dataRoot()) + '/')) continue
 
     if (e.isFile()) {
-      const isMod = usingIndex
-        ? !rootFiles.has(lname)
-        : lname.endsWith('.asi') ||
-          MOD_LOG.test(lname) ||
-          LOADER_DLL.has(lname) ||
-          (lname.endsWith('.dll') && !STOCK_ROOT_DLL.has(lname))
+      const isMod = usingIndex ? !rootFiles.has(lname) : !isStockRoot(lname, false)
       if (!isMod) continue
       const size = (await fs.stat(abs).catch(() => null))?.size ?? 0
       items.push({ rel, isDir: false, kind: classifyFile(lname), size, files: [rel] })
       totalBytes += size
     } else if (e.isDirectory()) {
-      const isMod = usingIndex ? !vanillaDirs.has(lname) : MOD_DIRS.has(lname)
+      const isMod = usingIndex ? !vanillaDirs.has(lname) : !isStockRoot(lname, true)
       if (!isMod) continue
       items.push({ rel, isDir: true, kind: 'folder', size: -1, files: [] })
     }
