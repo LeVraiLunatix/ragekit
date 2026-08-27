@@ -93,15 +93,42 @@ if (typeof window !== 'undefined' && !window.api) {
         { rel: 'x64a.rpf', sizeBytes: 2147483648, encryption: 'AES' as const, inMods: false },
         { rel: 'mods/update/update.rpf', sizeBytes: 1258291200, encryption: 'AES' as const, inMods: true },
       ],
-      open: async () => ({
-        encryption: 'AES' as const,
-        writable: true,
-        nodes: [
-          { name: 'common', path: 'common', isDir: true, isResource: false, isNestedRpf: false, size: 0 },
-          { name: 'x64', path: 'x64', isDir: true, isResource: false, isNestedRpf: false, size: 0 },
-          { name: 'dlc.rpf', path: 'dlc.rpf', isDir: false, isResource: false, isNestedRpf: true, size: 5242880 },
-        ],
-      }),
+      open: async (chain: string[]) => {
+        const d = (name: string, path: string) => ({
+          name,
+          path,
+          isDir: true,
+          isResource: false,
+          isNestedRpf: false,
+          size: 0,
+        })
+        const f = (name: string, path: string, size: number, res = false, rpf = false) => ({
+          name,
+          path,
+          isDir: false,
+          isResource: res,
+          isNestedRpf: rpf,
+          size,
+        })
+        return {
+          encryption: 'AES' as const,
+          writable: chain[0].startsWith('mods/'),
+          nodes: [
+            d('common', 'common'),
+            d('x64', 'x64'),
+            d('data', 'common/data'),
+            f('gtxd.meta', 'common/data/gtxd.meta', 4821),
+            f('dlclist.xml', 'common/data/dlclist.xml', 2310),
+            f('handling.meta', 'common/data/handling.meta', 91002),
+            f('vehicles.meta', 'common/data/vehicles.meta', 31877),
+            f('t20.yft', 'x64/t20.yft', 814722, true),
+            f('t20.ytd', 'x64/t20.ytd', 5353326, true),
+            f('vehicles.rpf', 'x64/vehicles.rpf', 3158016, false, true),
+            f('setup2.xml', 'setup2.xml', 490),
+            f('content.xml', 'content.xml', 2476),
+          ],
+        }
+      },
       readText: async () => '<?xml version="1.0"?>\n<Example>mock</Example>',
       extract: async () => true,
       replace: async () => true,
