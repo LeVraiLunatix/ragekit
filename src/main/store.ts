@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { join } from 'node:path'
 import Store from 'electron-store'
-import type { AppConfig, Mod, Profile } from '@shared/types'
+import type { AppConfig, Mod, Profile, VanillaSnapshot } from '@shared/types'
 
 interface Schema {
   config: AppConfig
@@ -9,6 +9,7 @@ interface Schema {
   profiles: Profile[]
   /** Files renamed aside by online-safe mode, as game-relative paths. */
   onlineMoved: string[]
+  vanillaSnapshot: VanillaSnapshot | null
 }
 
 const defaults: Schema = {
@@ -24,6 +25,7 @@ const defaults: Schema = {
   mods: [],
   profiles: [{ id: 'default', name: 'Default', enabledMods: [] }],
   onlineMoved: [],
+  vanillaSnapshot: null,
 }
 
 export const store = new Store<Schema>({ defaults, name: 'gtav-mod-manager' })

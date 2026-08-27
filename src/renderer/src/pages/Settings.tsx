@@ -1,11 +1,110 @@
-import { useState, type ReactNode } from 'react'
-import { FolderSearch, FolderOpen, CheckCircle2, XCircle } from 'lucide-react'
-import type { LanguageCode } from '@shared/types'
+import { useEffect, useState, type ReactNode } from 'react'
+import {
+  FolderSearch,
+  FolderOpen,
+  CheckCircle2,
+  XCircle,
+  ShieldCheck,
+  ScanLine,
+} from 'lucide-react'
+import type { IntegrityReport, LanguageCode } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, LANG_LABEL } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
+
+function IntegrityCard(): ReactNode {
+  const { t, relative } = useI18n()
+  const game = useAppStore((s) => s.config?.game ?? null)
+  const [report, setReport] = useState<IntegrityReport | null>(null)
+  const [busy, setBusy] = useState<null | 'take' | 'verify'>(null)
+
+  useEffect(() => {
+    if (game?.valid) void window.api.integrity.verify().then(setReport)
+  }, [game?.valid])
+
+  const run = async (kind: 'take' | 'verify'): Promise<void> => {
+    setBusy(kind)
+    try {
+      if (kind === 'take') await window.api.integrity.take()
+      setReport(await window.api.integrity.verify())
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="size-4 text-brand" />
+        <h2 className="text-sm font-semibold">{t('integrity.title')}</h2>
+      </div>
+      <p className="mt-2 text-[12px] leading-relaxed text-ink-faint">{t('integrity.body')}</p>
+
+      <div className="mt-3 text-[12px]">
+        {!report?.hasSnapshot ? (
+          <span className="text-ink-faint">{t('integrity.none')}</span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-ink-faint">
+              {t('integrity.takenAt', {
+                time: report.takenAt ? relative(report.takenAt) : '?',
+              })}
+            </span>
+            {report.ok ? (
+              <Badge tone="good">
+                <CheckCircle2 className="size-3" /> {t('integrity.clean')}
+              </Badge>
+            ) : (
+              <>
+                {report.changed.length > 0 && (
+                  <Badge tone="bad">{t('integrity.changed', { count: report.changed.length })}</Badge>
+                )}
+                {report.missing.length > 0 && (
+                  <Badge tone="bad">{t('integrity.missing', { count: report.missing.length })}</Badge>
+                )}
+                {report.extra.length > 0 && (
+                  <Badge tone="warn">{t('integrity.extra', { count: report.extra.length })}</Badge>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <Button size="sm" loading={busy === 'take'} disabled={!game?.valid} onClick={() => run('take')}>
+          <ScanLine className="size-4" />
+          {t('integrity.take')}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          loading={busy === 'verify'}
+          disabled={!game?.valid || !report?.hasSnapshot}
+          onClick={() => run('verify')}
+        >
+          {t('integrity.verify')}
+        </Button>
+        {report?.hasSnapshot && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              await window.api.integrity.clear()
+              setReport(await window.api.integrity.verify())
+            }}
+          >
+            {t('integrity.clear')}
+          </Button>
+        )}
+      </div>
+    </Card>
+  )
+}
 
 export function SettingsPage(): ReactNode {
   const { t, language } = useI18n()
@@ -108,6 +207,8 @@ export function SettingsPage(): ReactNode {
           ))}
         </div>
       </Card>
+
+      <IntegrityCard />
 
       <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">{t('settings.note')}</p>
     </Page>

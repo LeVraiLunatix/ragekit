@@ -1,11 +1,120 @@
 import { useCallback, useState, type DragEvent, type ReactNode } from 'react'
-import { UploadCloud, FolderOpen, Trash2, Download } from 'lucide-react'
-import type { ImportResult } from '@shared/types'
+import { UploadCloud, FolderOpen, Trash2, Download, Globe, ExternalLink } from 'lucide-react'
+import type { ImportResult, RemoteMod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card } from '@/components/ui'
 import { PlanPreview } from '@/components/PlanPreview'
+
+function RemoteInstaller({
+  gameReady,
+  onInstalled,
+}: {
+  gameReady: boolean
+  onInstalled: () => void
+}): ReactNode {
+  const { t } = useI18n()
+  const [url, setUrl] = useState('')
+  const [remote, setRemote] = useState<RemoteMod | null>(null)
+  const [phase, setPhase] = useState<'idle' | 'fetching' | 'installing'>('idle')
+
+  const fetchInfo = async (): Promise<void> => {
+    if (!url.trim()) return
+    setPhase('fetching')
+    setRemote(null)
+    try {
+      setRemote(await window.api.remote.fetch(url.trim()))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPhase('idle')
+    }
+  }
+
+  const install = async (): Promise<void> => {
+    if (!remote) return
+    setPhase('installing')
+    try {
+      await window.api.remote.install(remote)
+      setRemote(null)
+      setUrl('')
+      onInstalled()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPhase('idle')
+    }
+  }
+
+  return (
+    <Card className="mb-4 p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Globe className="size-4 text-brand" />
+        {t('remote.title')}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && fetchInfo()}
+          placeholder={t('remote.placeholder')}
+          className="no-drag h-9 flex-1 rounded-lg border border-line bg-bg px-3 text-[13px] outline-none placeholder:text-ink-faint focus:border-brand/50"
+        />
+        <Button
+          size="md"
+          loading={phase === 'fetching'}
+          disabled={!url.trim() || phase !== 'idle'}
+          onClick={fetchInfo}
+        >
+          {t('remote.fetch')}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-ink-faint">{t('remote.beta')}</p>
+
+      {remote && (
+        <div className="mt-3 flex gap-3 border-t border-line pt-3">
+          {remote.imageUrl && (
+            <img
+              src={remote.imageUrl}
+              alt=""
+              className="size-16 shrink-0 rounded-lg object-cover"
+              onError={(e) => (e.currentTarget.style.display = 'none')}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{remote.name}</p>
+            <p className="truncate text-[12px] text-ink-faint">
+              {[remote.author, remote.updatedAt && t('remote.updatedOn', {
+                date: new Date(remote.updatedAt).toLocaleDateString(),
+              })]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+            {!remote.autoInstallable && (
+              <p className="mt-1 text-[12px] text-warn">{t('remote.offsite')}</p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-start gap-2">
+            <Button size="sm" variant="ghost" onClick={() => window.api.misc.openExternal(remote.url)}>
+              <ExternalLink className="size-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              loading={phase === 'installing'}
+              disabled={!gameReady || !remote.autoInstallable || phase !== 'idle'}
+              onClick={install}
+            >
+              <Download className="size-3.5" />
+              {t('remote.install')}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
 
 export function AddModsPage(): ReactNode {
   const { t } = useI18n()
@@ -47,6 +156,14 @@ export function AddModsPage(): ReactNode {
           {t('add.needGameFolder')}
         </Card>
       )}
+
+      <RemoteInstaller
+        gameReady={gameReady}
+        onInstalled={() => {
+          void Promise.all([refreshMods(), refreshDeps()])
+          setRoute('library')
+        }}
+      />
 
       <div
         onDragOver={(e) => {

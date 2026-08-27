@@ -1,6 +1,6 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { AppConfig, FoundMod, GameInfo, LanguageCode } from '@shared/types'
+import type { AppConfig, FoundMod, GameInfo, LanguageCode, RemoteMod } from '@shared/types'
 import { store } from './store'
 import { detectGame, validateGameFolder } from './game/detect'
 import { dependencyStatus } from './mods/deps'
@@ -19,6 +19,8 @@ import {
 import { scanUnmanaged, adoptFound } from './mods/scan'
 import { setOnlineSafeMode, isGameRunning } from './online'
 import { readDiagnostics } from './diagnostics'
+import { takeSnapshot, verifySnapshot, clearSnapshot } from './integrity'
+import { fetchModInfo, installFromRemote, checkModUpdates } from './gta5mods'
 import {
   listProfiles,
   createProfile,
@@ -188,6 +190,39 @@ export function registerIpc(): void {
     if (!game?.valid) return []
     return readDiagnostics(game.path)
   })
+
+  ipcMain.handle(IPC.integrityTake, () => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    return takeSnapshot(game.path)
+  })
+
+  ipcMain.handle(IPC.integrityVerify, () => {
+    const game = getConfig().game
+    if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
+    return verifySnapshot(game.path)
+  })
+
+  ipcMain.handle(IPC.integrityClear, () => clearSnapshot())
+
+  ipcMain.handle(IPC.remoteFetch, (_e, url: string) => fetchModInfo(url))
+
+  ipcMain.handle(IPC.remoteInstall, async (_e, remote: RemoteMod) => {
+    const taskId = `remote:${remote.url}`
+    const result = await installFromRemote(remote, (done, total, label) => {
+      broadcast(IPC.evtTaskProgress, {
+        taskId,
+        label,
+        progress: total ? done / total : null,
+        done: false,
+      })
+    })
+    broadcast(IPC.evtTaskProgress, { taskId, label: result.mod.name, progress: 1, done: true })
+    broadcast(IPC.evtModsChanged, null)
+    return result
+  })
+
+  ipcMain.handle(IPC.remoteCheckUpdates, () => checkModUpdates())
 
   ipcMain.handle(IPC.modsPlan, (_e, modId: string) => buildPlan(modId))
 

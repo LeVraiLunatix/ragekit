@@ -67,6 +67,26 @@ if (typeof window !== 'undefined' && !window.api) {
     },
     deps: { status: async () => [] },
     diagnostics: { read: async () => [] },
+    integrity: {
+      take: async () => ({ takenAt: new Date().toISOString(), entries: [] }),
+      verify: async () => ({ hasSnapshot: false, ok: true, changed: [], missing: [], extra: [] }),
+      clear: async () => {},
+    },
+    remote: {
+      fetch: async (url: string) => ({
+        url,
+        name: 'Mock remote mod',
+        author: 'someone',
+        updatedAt: new Date().toISOString(),
+        downloadUrl: url + '/download/1',
+        autoInstallable: true,
+      }),
+      install: async () => ({
+        mod: { ...mockMod },
+        plan: { modId: 'mock', kind: 'dropin' as const, files: [], warnings: [], missingDependencies: [] },
+      }),
+      checkUpdates: async () => [],
+    },
     online: {
       setMode: async (active) => {
         config = { ...config, onlineSafeMode: active }

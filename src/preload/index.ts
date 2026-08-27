@@ -7,11 +7,15 @@ import type {
   GameInfo,
   ImportResult,
   InstallPlan,
+  IntegrityReport,
   LanguageCode,
   LogFile,
   Mod,
   Profile,
+  RemoteMod,
   TaskProgress,
+  UpdateInfo,
+  VanillaSnapshot,
 } from '@shared/types'
 
 export interface FileConflict {
@@ -71,6 +75,17 @@ const api = {
   },
   diagnostics: {
     read: (): Promise<LogFile[]> => ipcRenderer.invoke(IPC.diagnosticsRead),
+  },
+  integrity: {
+    take: (): Promise<VanillaSnapshot> => ipcRenderer.invoke(IPC.integrityTake),
+    verify: (): Promise<IntegrityReport> => ipcRenderer.invoke(IPC.integrityVerify),
+    clear: (): Promise<void> => ipcRenderer.invoke(IPC.integrityClear),
+  },
+  remote: {
+    fetch: (url: string): Promise<RemoteMod> => ipcRenderer.invoke(IPC.remoteFetch, url),
+    install: (remote: RemoteMod): Promise<ImportResult> =>
+      ipcRenderer.invoke(IPC.remoteInstall, remote),
+    checkUpdates: (): Promise<UpdateInfo[]> => ipcRenderer.invoke(IPC.remoteCheckUpdates),
   },
   online: {
     setMode: (active: boolean): Promise<{ active: boolean; moved: string[] }> =>

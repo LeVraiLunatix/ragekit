@@ -201,7 +201,7 @@ export async function buildPlan(modId: string): Promise<InstallPlan> {
 // Install / uninstall
 // ---------------------------------------------------------------------------
 
-function updateMod(modId: string, patch: Partial<Mod>): Mod {
+export function updateMod(modId: string, patch: Partial<Mod>): Mod {
   const mods = getMods()
   const idx = mods.findIndex((m) => m.id === modId)
   if (idx < 0) throw new Error(`Unknown mod ${modId}`)

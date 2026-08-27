@@ -77,6 +77,10 @@ export interface Mod {
   /** Load order for scripts / asi. Lower loads first. */
   loadOrder: number
   tags: string[]
+  /** GTA5-Mods.com page this mod was installed from, when applicable. */
+  sourceUrl?: string
+  /** "Last updated" timestamp of the mod page at install time. */
+  remoteUpdatedAt?: string
 }
 
 export interface Profile {
@@ -113,6 +117,47 @@ export interface FoundMod {
 export interface ImportResult {
   mod: Mod
   plan: InstallPlan
+}
+
+export interface SnapshotEntry {
+  rel: string
+  size: number
+  mtimeMs: number
+  sha1?: string
+}
+
+export interface VanillaSnapshot {
+  takenAt: string
+  gameVersion?: string
+  entries: SnapshotEntry[]
+}
+
+export interface IntegrityReport {
+  hasSnapshot: boolean
+  takenAt?: string
+  gameVersion?: string
+  ok: boolean
+  changed: string[]
+  missing: string[]
+  extra: string[]
+}
+
+/** A mod page fetched from GTA5-Mods.com. */
+export interface RemoteMod {
+  url: string
+  name: string
+  author?: string
+  imageUrl?: string
+  updatedAt?: string
+  downloadUrl: string
+  /** False when the download is hosted off-site and can't be auto-installed. */
+  autoInstallable: boolean
+}
+
+export interface UpdateInfo {
+  modId: string
+  currentUpdatedAt?: string
+  latestUpdatedAt?: string
 }
 
 export type LogLevel = 'error' | 'warn' | 'info'

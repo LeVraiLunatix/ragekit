@@ -44,6 +44,16 @@ export const IPC = {
   // diagnostics
   diagnosticsRead: 'diagnostics:read',
 
+  // integrity / vanilla snapshot
+  integrityTake: 'integrity:take',
+  integrityVerify: 'integrity:verify',
+  integrityClear: 'integrity:clear',
+
+  // GTA5-Mods.com
+  remoteFetch: 'remote:fetch',
+  remoteInstall: 'remote:install',
+  remoteCheckUpdates: 'remote:checkUpdates',
+
   // dependencies
   depsStatus: 'deps:status',
 

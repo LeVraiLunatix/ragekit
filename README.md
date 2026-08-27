@@ -4,21 +4,35 @@ A modern desktop mod manager for **Grand Theft Auto V (single-player / Story Mod
 Import mods once, toggle them on and off, and get a clean uninstall every time.
 
 > ⚠️ Story Mode only. Never launch GTA Online with Script Hook V or modified game
-> files present — it can get your Rockstar account banned.
+> files present — it can get your Rockstar account banned. Use **online-safe mode**
+> before playing online.
 
-## Features (v1)
+## Features
 
-- **Auto-detect** the game folder for Steam, Epic, and the Rockstar launcher (or browse manually).
-- **Drop-in mods** — `.zip` archives or loose folders containing `.asi` plugins,
-  `scripts/` files (`.lua` / `.js` / `.cs` / `.dll`), and loader DLLs. Files are
-  classified and routed to the right place automatically.
-- **OpenIV `.oiv` packages** — metadata + loose-file operations are applied.
-  Operations that write *inside* `.rpf` archives are detected and reported
-  (full RPF editing is planned for v2).
-- **Safe install/uninstall** — mods are copied into an internal library, replaced
-  game files are backed up, and disabling or removing a mod restores the originals.
-- **Dependency check** — detects Script Hook V, Script Hook V .NET, and OpenIV.asi,
-  and links to their official download pages.
+- **First-run wizard** — pick language (FR / EN / ES / DE), locate the game, read
+  the safety notice. Polished animated flow.
+- **Game auto-detect** — Steam, Epic, and the Rockstar launcher, or browse manually.
+- **Import** `.zip`, `.rar`, `.oiv`, or a loose folder. Files are classified and
+  routed: `.asi` → root, `scripts/` files, loader DLLs, `mods/` trees.
+- **OpenIV `.oiv` packages** — metadata + loose-file operations applied; `.rpf`
+  archive ops detected and reported (full RPF editing is planned).
+- **Safe install / uninstall** — mods live in an internal library, replaced game
+  files are backed up, disabling or removing a mod restores the originals.
+- **Online-safe mode** — one toggle moves every mod loader (`dinput8`/`version`/
+  `winmm.dll`, `ScriptHookV.dll`, every root `.asi`, and the `mods/` `scripts/`
+  `plugins/` folders) **out of the game directory** into `%APPDATA%`, leaving the
+  folder byte-identical to vanilla. Toggle back to restore.
+- **Adopt existing mods** — scans the game folder for mods installed by hand or
+  another tool and pulls them into the library.
+- **Profiles** — named mod loadouts you switch between in one click.
+- **Load order & conflicts** — reorder `.asi`/scripts, and see when two mods write
+  the same file.
+- **Dependency check** — Script Hook V, Script Hook V .NET, OpenIV.asi.
+- **Diagnostics** — parses `ScriptHookV.log`, `asiloader.log`,
+  `ScriptHookVDotNet*.log`, `openIV.log` and surfaces the errors.
+- **Vanilla snapshot** — fingerprint core game files while clean, then verify drift.
+- **GTA5-Mods.com install** (experimental) — paste a mod link, it downloads,
+  classifies and installs; checks the page later for updates.
 
 ## Development
 
@@ -27,15 +41,19 @@ npm install
 npm run dev
 ```
 
+The renderer also runs in a plain browser (`vite`) via a `window.api` mock in
+`src/renderer/src/lib/browserMock.ts` — handy for fast UI work.
+
 ## Build a Windows installer
 
 ```bash
 npm run dist
 ```
 
-Output lands in `release/<version>/GTAV Mod Manager-<version>-setup.exe` (NSIS).
+Output: `release/<version>/GTAV Mod Manager-<version>-setup.exe` (NSIS).
 
 ## Stack
 
 Electron + electron-vite · React + TypeScript · Tailwind CSS · zustand ·
-electron-builder (NSIS).
+framer-motion · electron-builder (NSIS). Archive handling: adm-zip, node-unrar-js,
+fast-xml-parser.

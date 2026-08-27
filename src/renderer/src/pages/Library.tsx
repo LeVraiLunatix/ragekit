@@ -10,6 +10,8 @@ import {
   ChevronDown,
   ChevronUp,
   TriangleAlert,
+  RefreshCw,
+  ArrowUpCircle,
 } from 'lucide-react'
 import type { FoundMod, Mod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -91,12 +93,14 @@ function ModRow({
   mod,
   locked,
   conflictWith,
+  hasUpdate,
   canMoveUp,
   canMoveDown,
 }: {
   mod: Mod
   locked: boolean
   conflictWith: string[]
+  hasUpdate: boolean
   canMoveUp: boolean
   canMoveDown: boolean
 }): ReactNode {
@@ -164,6 +168,18 @@ function ModRow({
             <FileBox className="size-3.5 shrink-0 text-ink-faint" />
           )}
           {mod.tags.includes('adopted') && <Badge tone="neutral">adopted</Badge>}
+          {hasUpdate && (
+            <button
+              onClick={() => mod.sourceUrl && window.api.misc.openExternal(mod.sourceUrl)}
+              className="no-drag inline-flex items-center gap-1 text-brand-hi"
+              title={t('remote.updateAvailable')}
+            >
+              <ArrowUpCircle className="size-3.5" />
+              <span className="text-[11px] font-medium uppercase tracking-wide">
+                {t('remote.updateAvailable')}
+              </span>
+            </button>
+          )}
           {conflictWith.length > 0 && (
             <span
               title={t('library.conflictHint', { mods: conflictWith.join(', ') })}
@@ -202,6 +218,19 @@ export function LibraryPage(): ReactNode {
   const { t, tc } = useI18n()
   const { mods, config, conflicts, setRoute } = useAppStore()
   const locked = !!config?.onlineSafeMode
+  const [updates, setUpdates] = useState<Set<string>>(new Set())
+  const [checking, setChecking] = useState(false)
+  const hasSourced = mods.some((m) => m.sourceUrl)
+
+  const checkUpdates = async (): Promise<void> => {
+    setChecking(true)
+    try {
+      const list = await window.api.remote.checkUpdates()
+      setUpdates(new Set(list.map((u) => u.modId)))
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const nameById = new Map(mods.map((m) => [m.id, m.name]))
   const conflictNames = new Map<string, Set<string>>()
@@ -218,10 +247,18 @@ export function LibraryPage(): ReactNode {
       title={t('library.title')}
       subtitle={`${tc('library.count', mods.length)} · ${t('library.subtitle')}`}
       actions={
-        <Button size="sm" variant="primary" onClick={() => setRoute('add')}>
-          <PlusCircle className="size-3.5" />
-          {t('library.add')}
-        </Button>
+        <>
+          {hasSourced && (
+            <Button size="sm" variant="ghost" loading={checking} onClick={checkUpdates}>
+              <RefreshCw className="size-3.5" />
+              {t('remote.checkUpdates')}
+            </Button>
+          )}
+          <Button size="sm" variant="primary" onClick={() => setRoute('add')}>
+            <PlusCircle className="size-3.5" />
+            {t('library.add')}
+          </Button>
+        </>
       }
     >
       <ScanBanner />
@@ -248,6 +285,7 @@ export function LibraryPage(): ReactNode {
                 mod={mod}
                 locked={locked}
                 conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
+                hasUpdate={updates.has(mod.id)}
                 canMoveUp={enabledIdx > 0}
                 canMoveDown={enabledIdx >= 0 && enabledIdx < installed.length - 1}
               />
