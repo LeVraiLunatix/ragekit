@@ -38,6 +38,59 @@ function decodeEntities(s: string): string {
     .replace(/&gt;/g, '>')
 }
 
+/**
+ * The `/…/download/ID` URL returns an HTML "Downloading …" interstitial (ads +
+ * a countdown). The real file lives on files.gta5-mods.com — pull it out.
+ */
+function realFileUrlFrom(html: string): string | undefined {
+  const cdn = html.match(/https?:\/\/files\.gta5-mods\.com\/[^"'\s<>\\)]+/i)?.[0]
+  const archive = html.match(
+    /https?:\/\/[^"'\s<>\\)]+?\.(?:zip|rar|oiv|7z)(?:\?[^"'\s<>\\)]*)?/i,
+  )?.[0]
+  const url = cdn ?? archive
+  return url ? decodeEntities(url) : undefined
+}
+
+interface Downloaded {
+  buf: Buffer
+  kind: 'zip' | 'rar'
+  finalUrl: string
+  contentDisposition: string
+}
+
+/** Fetch a URL, transparently stepping through the GTA5-Mods interstitial. */
+async function downloadArchive(url: string, referer: string, hop = 0): Promise<Downloaded> {
+  const res = await fetch(url, { headers: { 'user-agent': UA, referer } })
+  if (!res.ok) throw new Error(`Download failed (${res.status}).`)
+
+  const buf = Buffer.from(await res.arrayBuffer())
+  const kind = sniff(buf)
+
+  if (kind === 'zip' || kind === 'rar') {
+    return {
+      buf,
+      kind,
+      finalUrl: res.url,
+      contentDisposition: res.headers.get('content-disposition') ?? '',
+    }
+  }
+  if (kind === '7z') {
+    throw new Error(
+      'This mod ships as a .7z archive, which is not supported yet. Extract it and drop the folder in.',
+    )
+  }
+  if (kind === 'html' && hop < 2) {
+    const next = realFileUrlFrom(buf.toString('utf8'))
+    if (next) return downloadArchive(next, res.url, hop + 1)
+  }
+
+  throw new Error(
+    kind === 'html'
+      ? 'GTA5-Mods returned its download page but no direct file link could be found. Open the mod page and download it manually, then drop the file in.'
+      : 'The downloaded file is not a recognised archive. Download it manually from the mod page and drop it in.',
+  )
+}
+
 export async function fetchModInfo(rawUrl: string): Promise<RemoteMod> {
   let url: URL
   try {
@@ -109,34 +162,23 @@ export async function installFromRemote(
   }
 
   onProgress?.(0, 1, remote.name)
-  const res = await fetch(remote.downloadUrl, {
-    headers: { 'user-agent': UA, referer: remote.url },
-  })
-  if (!res.ok) throw new Error(`Download failed (${res.status}).`)
+  const dl = await downloadArchive(remote.downloadUrl, remote.url)
 
-  const buf = Buffer.from(await res.arrayBuffer())
-  const kind = sniff(buf)
-  if (kind === 'html' || kind === 'unknown') {
-    throw new Error(
-      kind === 'html'
-        ? 'The download returned a web page, not a mod file (GTA5-Mods may be gating it). Open the mod page and download it manually, then drop the file in.'
-        : 'The downloaded file is not a recognised archive. Download it manually from the mod page and drop it in.',
-    )
-  }
-  if (kind === '7z') {
-    throw new Error('This mod ships as a .7z archive, which is not supported yet. Extract it and drop the folder in.')
-  }
-
-  const cd = res.headers.get('content-disposition') ?? ''
   const rawStem =
-    first(cd, /filename\*=(?:UTF-8'')?"?([^";]+)"?/i, /filename="?([^";]+)"?/i) ||
-    new URL(res.url).pathname.split('/').pop() ||
+    first(
+      dl.contentDisposition,
+      /filename\*=(?:UTF-8'')?"?([^";]+)"?/i,
+      /filename="?([^";]+)"?/i,
+    ) ||
+    decodeURIComponent(new URL(dl.finalUrl).pathname.split('/').pop() ?? '') ||
     remote.name ||
     'mod'
-  const stem = decodeURIComponent(rawStem)
+  const stem = rawStem
     .replace(/\.(zip|rar|oiv|7z)$/i, '')
     .replace(/[/\\:*?"<>|]/g, '_')
-  const filename = `${stem}.${kind}` // extension from the real bytes
+    .trim()
+  const filename = `${stem || 'mod'}.${dl.kind}` // extension from the real bytes
+  const buf = dl.buf
 
   const tmp = join(app.getPath('temp'), `gtavmm-${Date.now()}-${filename}`)
   await fs.writeFile(tmp, buf)

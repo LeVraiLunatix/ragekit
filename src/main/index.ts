@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, nativeTheme } from 'electron'
 import { join } from 'node:path'
-import { store, libraryDir, backupsDir } from './store'
+import { store, libraryDir, backupsDir, migrateDataDir } from './store'
 import { registerIpc } from './ipc'
 import { promises as fs } from 'node:fs'
 import type { LanguageCode } from '@shared/types'
@@ -56,6 +56,7 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   nativeTheme.themeSource = store.get('config').theme === 'light' ? 'light' : 'dark'
   seedLanguageOnFirstRun()
+  await migrateDataDir().catch((err) => console.error('data dir migration failed:', err))
   await ensureDirs()
   registerIpc()
   createWindow()

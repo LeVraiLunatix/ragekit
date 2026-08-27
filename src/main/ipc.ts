@@ -1,7 +1,7 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { AppConfig, FoundMod, GameInfo, LanguageCode, RemoteMod } from '@shared/types'
-import { store } from './store'
+import { store, migrateDataDir } from './store'
 import { detectGame, validateGameFolder } from './game/detect'
 import { dependencyStatus } from './mods/deps'
 import {
@@ -48,7 +48,11 @@ function setConfig(patch: Partial<AppConfig>): AppConfig {
 export function registerIpc(): void {
   ipcMain.handle(IPC.configGet, () => getConfig())
 
-  ipcMain.handle(IPC.configSetGame, (_e, game: GameInfo | null) => setConfig({ game }))
+  ipcMain.handle(IPC.configSetGame, async (_e, game: GameInfo | null) => {
+    const config = setConfig({ game })
+    await migrateDataDir().catch((err) => console.error('data dir migration failed:', err))
+    return config
+  })
 
   ipcMain.handle(IPC.configSetLanguage, (_e, language: LanguageCode) =>
     setConfig({ language }),
