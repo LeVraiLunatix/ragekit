@@ -205,6 +205,17 @@ export const en = {
       'Every mod loader is moved aside — the game boots completely vanilla. Switch back to Story Mode to play with your mods.',
     gameRunning: 'Close GTA V first — switching modes while it runs is unsafe.',
   },
+  admin: {
+    bannerTitle: 'Administrator rights required',
+    bannerBody:
+      'The GTA V folder only lets administrators write to it (same as OpenIV). Relaunch Ragekit elevated to install mods, park loaders and edit archives.',
+    relaunch: 'Relaunch as administrator',
+    relaunching: 'Relaunching…',
+    dialogTitle: 'Ragekit needs administrator rights',
+    dialogBody:
+      'Windows denied writing to the game folder. It grants write access to administrators only — relaunch Ragekit as administrator and try again.',
+    devHint: 'Dev mode: quit, run your terminal as administrator, then start again.',
+  },
   scan: {
     title_one: '{count} mod found outside the app',
     title_other: '{count} mods found outside the app',

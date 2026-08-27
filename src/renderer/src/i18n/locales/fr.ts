@@ -208,6 +208,17 @@ export const fr: Dict = {
       'Tous les loaders de mods sont mis de côté — le jeu démarre 100 % vanilla. Repasse en mode Histoire pour rejouer avec tes mods.',
     gameRunning: 'Ferme GTA V d’abord — basculer pendant qu’il tourne est risqué.',
   },
+  admin: {
+    bannerTitle: 'Droits administrateur requis',
+    bannerBody:
+      'Le dossier de GTA V n’autorise l’écriture qu’aux administrateurs (comme OpenIV). Relance Ragekit en administrateur pour installer des mods, mettre les loaders de côté et éditer les archives.',
+    relaunch: 'Relancer en administrateur',
+    relaunching: 'Relancement…',
+    dialogTitle: 'Ragekit a besoin des droits administrateur',
+    dialogBody:
+      'Windows a refusé l’écriture dans le dossier du jeu. Il n’autorise l’écriture qu’aux administrateurs — relance Ragekit en administrateur puis réessaie.',
+    devHint: 'Mode dev : quitte, lance ton terminal en administrateur, puis redémarre.',
+  },
   scan: {
     title_one: '{count} mod détecté hors de l’app',
     title_other: '{count} mods détectés hors de l’app',

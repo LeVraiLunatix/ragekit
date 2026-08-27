@@ -207,6 +207,17 @@ export const de: Dict = {
       'Alle Mod-Loader sind beiseitegelegt — das Spiel startet komplett vanilla. Wechsle zurück zum Story-Modus, um mit deinen Mods zu spielen.',
     gameRunning: 'Schließe zuerst GTA V — im laufenden Spiel umzuschalten ist riskant.',
   },
+  admin: {
+    bannerTitle: 'Administratorrechte erforderlich',
+    bannerBody:
+      'In den GTA-V-Ordner dürfen nur Administratoren schreiben (wie bei OpenIV). Starte Ragekit mit erhöhten Rechten neu, um Mods zu installieren, Loader beiseitezulegen und Archive zu bearbeiten.',
+    relaunch: 'Als Administrator neu starten',
+    relaunching: 'Wird neu gestartet…',
+    dialogTitle: 'Ragekit benötigt Administratorrechte',
+    dialogBody:
+      'Windows hat das Schreiben in den Spielordner verweigert. Er erlaubt Schreibzugriff nur für Administratoren — starte Ragekit als Administrator neu und versuche es erneut.',
+    devHint: 'Dev-Modus: beenden, Terminal als Administrator starten, dann erneut starten.',
+  },
   scan: {
     title_one: '{count} Mod außerhalb der App gefunden',
     title_other: '{count} Mods außerhalb der App gefunden',

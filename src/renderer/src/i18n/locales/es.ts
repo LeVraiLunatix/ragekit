@@ -207,6 +207,17 @@ export const es: Dict = {
       'Todos los cargadores de mods están apartados — el juego arranca totalmente vanilla. Vuelve al Modo Historia para jugar con tus mods.',
     gameRunning: 'Cierra GTA V primero — cambiar de modo con el juego abierto es arriesgado.',
   },
+  admin: {
+    bannerTitle: 'Se requieren permisos de administrador',
+    bannerBody:
+      'La carpeta de GTA V solo permite escribir a los administradores (igual que OpenIV). Reinicia Ragekit como administrador para instalar mods, apartar los cargadores y editar archivos.',
+    relaunch: 'Reiniciar como administrador',
+    relaunching: 'Reiniciando…',
+    dialogTitle: 'Ragekit necesita permisos de administrador',
+    dialogBody:
+      'Windows denegó la escritura en la carpeta del juego. Solo permite escribir a los administradores: reinicia Ragekit como administrador e inténtalo de nuevo.',
+    devHint: 'Modo dev: cierra, abre tu terminal como administrador y vuelve a iniciar.',
+  },
   scan: {
     title_one: '{count} mod encontrado fuera de la app',
     title_other: '{count} mods encontrados fuera de la app',

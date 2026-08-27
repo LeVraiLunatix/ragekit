@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import { PromptProvider } from '@/components/PromptDialog'
+import { AdminBanner } from '@/components/AdminBanner'
 import { TitleBar } from '@/components/TitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
@@ -32,6 +33,7 @@ function Shell(): ReactNode {
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
+      <AdminBanner />
       {safe && <OnlineSafeBanner />}
       <div className="flex min-h-0 flex-1">
         <Sidebar />

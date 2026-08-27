@@ -30,6 +30,7 @@ import {
   archiveBasename,
 } from './rpf/browser'
 import { magicCached, ngReady, ngReason, refetchMagic, loadNgKeys } from './rpf/ngkeys'
+import { isElevated, canWrite, relaunchElevated, guardGameWrite } from './elevation'
 import { join } from 'node:path'
 import {
   listProfiles,
@@ -113,27 +114,29 @@ export function registerIpc(): void {
 
   ipcMain.handle(IPC.modsInstall, async (_e, modId: string) => {
     const taskId = `install:${modId}`
-    const mod = await installMod(modId, (done, total, label) => {
-      broadcast(IPC.evtTaskProgress, {
-        taskId,
-        label: `Installing ${label}`,
-        progress: total ? done / total : null,
-        done: false,
-      })
-    })
+    const mod = await guardGameWrite(() =>
+      installMod(modId, (done, total, label) => {
+        broadcast(IPC.evtTaskProgress, {
+          taskId,
+          label: `Installing ${label}`,
+          progress: total ? done / total : null,
+          done: false,
+        })
+      }),
+    )
     broadcast(IPC.evtTaskProgress, { taskId, label: 'Installed', progress: 1, done: true })
     broadcast(IPC.evtModsChanged, null)
     return mod
   })
 
   ipcMain.handle(IPC.modsUninstall, async (_e, modId: string) => {
-    const mod = await uninstallMod(modId)
+    const mod = await guardGameWrite(() => uninstallMod(modId))
     broadcast(IPC.evtModsChanged, null)
     return mod
   })
 
   ipcMain.handle(IPC.modsSetEnabled, async (_e, modId: string, enabled: boolean) => {
-    const mod = await setEnabled(modId, enabled)
+    const mod = await guardGameWrite(() => setEnabled(modId, enabled))
     broadcast(IPC.evtModsChanged, null)
     return mod
   })
@@ -168,7 +171,7 @@ export function registerIpc(): void {
     setProfileMods(id, modIds),
   )
   ipcMain.handle(IPC.profilesApply, async (_e, id: string) => {
-    await applyProfile(id)
+    await guardGameWrite(() => applyProfile(id))
     broadcast(IPC.evtModsChanged, null)
   })
 
@@ -186,13 +189,13 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.modsAdopt, async (_e, items: FoundMod[]) => {
     const game = getConfig().game
     if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
-    const created = await adoptFound(game.path, items)
+    const created = await guardGameWrite(() => adoptFound(game.path, items))
     broadcast(IPC.evtModsChanged, null)
     return created
   })
 
   ipcMain.handle(IPC.onlineSetMode, async (_e, active: boolean) => {
-    const res = await setOnlineSafeMode(active)
+    const res = await guardGameWrite(() => setOnlineSafeMode(active))
     broadcast(IPC.evtModsChanged, null)
     return res
   })
@@ -247,14 +250,14 @@ export function registerIpc(): void {
     const win = BrowserWindow.getFocusedWindow() ?? undefined
     const res = await dialog.showOpenDialog(win!, { properties: ['openFile'] })
     if (res.canceled || !res.filePaths[0]) return false
-    await replaceEntry(game.path, vpath, res.filePaths[0])
+    await guardGameWrite(() => replaceEntry(game.path, vpath, res.filePaths[0]))
     return true
   })
 
   ipcMain.handle(IPC.rpfCopyToMods, (_e, vpath: string) => {
     const game = getConfig().game
     if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
-    return copyArchiveToMods(game.path, vpath)
+    return guardGameWrite(() => copyArchiveToMods(game.path, vpath))
   })
 
   ipcMain.handle(IPC.rpfShowInFolder, (_e, vpath: string) => {
@@ -304,6 +307,18 @@ export function registerIpc(): void {
     if (!game?.valid) return []
     return dependencyStatus(game.path)
   })
+
+  ipcMain.handle(IPC.systemWritable, async () => {
+    const game = getConfig().game
+    const gamePath = game?.valid ? game.path : null
+    return {
+      elevated: isElevated(),
+      gamePath,
+      gameWritable: gamePath ? await canWrite(gamePath) : true,
+    }
+  })
+
+  ipcMain.handle(IPC.systemRelaunchAdmin, () => relaunchElevated())
 
   ipcMain.handle(IPC.openExternal, (_e, url: string) => shell.openExternal(url))
 

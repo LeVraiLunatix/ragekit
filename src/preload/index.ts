@@ -108,6 +108,14 @@ const api = {
       ipcRenderer.invoke(IPC.onlineSetMode, active),
     isGameRunning: (): Promise<boolean> => ipcRenderer.invoke(IPC.onlineGameRunning),
   },
+  system: {
+    writable: (): Promise<{
+      elevated: boolean
+      gamePath: string | null
+      gameWritable: boolean
+    }> => ipcRenderer.invoke(IPC.systemWritable),
+    relaunchAdmin: (): Promise<boolean> => ipcRenderer.invoke(IPC.systemRelaunchAdmin),
+  },
   misc: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke(IPC.openExternal, url),
     openGameFolder: (): Promise<void> => ipcRenderer.invoke(IPC.openGameFolder),

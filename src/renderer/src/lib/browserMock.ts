@@ -157,6 +157,10 @@ if (typeof window !== 'undefined' && !window.api) {
       },
       isGameRunning: async () => false,
     },
+    system: {
+      writable: async () => ({ elevated: true, gamePath: null, gameWritable: true }),
+      relaunchAdmin: async () => false,
+    },
     misc: { openExternal: async () => {}, openGameFolder: async () => {}, pathForFile: () => '' },
     on: { taskProgress: () => noop, modsChanged: () => noop },
   }

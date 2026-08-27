@@ -11,6 +11,9 @@ asarUnpack:
   - node_modules/node-unrar-js/dist/js/**
 win:
   icon: build/icon.png
+  # A mod manager must write into the GTA V folder, which is usually admin-only
+  # (same reason OpenIV requires elevation). Always run elevated.
+  requestedExecutionLevel: requireAdministrator
   target:
     - target: nsis
       arch:

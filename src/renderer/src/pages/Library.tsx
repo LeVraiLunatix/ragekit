@@ -119,7 +119,15 @@ function ModRow({
       await window.api.mods.setEnabled(mod.id, !enabled)
       await Promise.all([refreshMods(), refreshDeps()])
     } catch (err) {
-      alert(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('GAME_DIR_NOT_WRITABLE')) {
+        if (confirm(`${t('admin.dialogTitle')}\n\n${t('admin.dialogBody')}`)) {
+          const ok = await window.api.system.relaunchAdmin()
+          if (!ok) alert(t('admin.devHint'))
+        }
+      } else {
+        alert(msg)
+      }
     } finally {
       setBusy(false)
     }

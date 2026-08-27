@@ -68,6 +68,10 @@ export const IPC = {
   // dependencies
   depsStatus: 'deps:status',
 
+  // system / elevation
+  systemWritable: 'system:writable',
+  systemRelaunchAdmin: 'system:relaunchAdmin',
+
   // misc
   openExternal: 'misc:openExternal',
   openGameFolder: 'misc:openGameFolder',
