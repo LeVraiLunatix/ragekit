@@ -51,7 +51,11 @@ async function importFolder(src: string, modDir: string): Promise<{ sourceDir: s
 async function importZip(src: string, modDir: string): Promise<{ sourceDir: string }> {
   const dest = join(modDir, 'src')
   await ensureDir(dest)
-  new AdmZip(src).extractAllTo(dest, true)
+  try {
+    new AdmZip(src).extractAllTo(dest, true)
+  } catch {
+    throw new Error('This file is not a valid .zip archive.')
+  }
   return { sourceDir: dest }
 }
 

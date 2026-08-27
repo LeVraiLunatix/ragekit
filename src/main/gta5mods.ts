@@ -16,6 +16,19 @@ function first(html: string, ...res: RegExp[]): string | undefined {
   return undefined
 }
 
+type Sniffed = 'zip' | 'rar' | '7z' | 'html' | 'unknown'
+
+/** Identify a downloaded blob by its magic bytes, not by a guessed extension. */
+function sniff(buf: Buffer): Sniffed {
+  if (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b) return 'zip' // PK
+  if (buf.length >= 7 && buf.toString('latin1', 0, 6) === 'Rar!\x1a\x07') return 'rar'
+  if (buf.length >= 6 && buf.toString('hex', 0, 6) === '377abcaf271c') return '7z'
+  const head = buf.toString('latin1', 0, 512).trimStart().toLowerCase()
+  if (head.startsWith('<!doctype') || head.startsWith('<html') || head.startsWith('<?xml'))
+    return 'html'
+  return 'unknown'
+}
+
 function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&')
@@ -101,15 +114,30 @@ export async function installFromRemote(
   })
   if (!res.ok) throw new Error(`Download failed (${res.status}).`)
 
-  const cd = res.headers.get('content-disposition') ?? ''
-  let filename =
-    first(cd, /filename\*=(?:UTF-8'')?"?([^";]+)"?/i, /filename="?([^";]+)"?/i) ??
-    new URL(res.url).pathname.split('/').pop() ??
-    'mod'
-  filename = decodeURIComponent(filename).replace(/[/\\:*?"<>|]/g, '_')
-  if (!/\.(zip|rar|oiv|7z)$/i.test(filename)) filename += '.zip'
-
   const buf = Buffer.from(await res.arrayBuffer())
+  const kind = sniff(buf)
+  if (kind === 'html' || kind === 'unknown') {
+    throw new Error(
+      kind === 'html'
+        ? 'The download returned a web page, not a mod file (GTA5-Mods may be gating it). Open the mod page and download it manually, then drop the file in.'
+        : 'The downloaded file is not a recognised archive. Download it manually from the mod page and drop it in.',
+    )
+  }
+  if (kind === '7z') {
+    throw new Error('This mod ships as a .7z archive, which is not supported yet. Extract it and drop the folder in.')
+  }
+
+  const cd = res.headers.get('content-disposition') ?? ''
+  const rawStem =
+    first(cd, /filename\*=(?:UTF-8'')?"?([^";]+)"?/i, /filename="?([^";]+)"?/i) ||
+    new URL(res.url).pathname.split('/').pop() ||
+    remote.name ||
+    'mod'
+  const stem = decodeURIComponent(rawStem)
+    .replace(/\.(zip|rar|oiv|7z)$/i, '')
+    .replace(/[/\\:*?"<>|]/g, '_')
+  const filename = `${stem}.${kind}` // extension from the real bytes
+
   const tmp = join(app.getPath('temp'), `gtavmm-${Date.now()}-${filename}`)
   await fs.writeFile(tmp, buf)
   onProgress?.(1, 1, filename)
