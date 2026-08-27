@@ -18,11 +18,12 @@ export const NATIVE_NAME: Record<LanguageCode, string> = {
   de: 'Deutsch',
 }
 
-export const FLAG: Record<LanguageCode, string> = {
-  fr: '🇫🇷',
-  en: '🇬🇧',
-  es: '🇪🇸',
-  de: '🇩🇪',
+/** Short uppercase label — flag emoji don't render on Windows, so we use codes. */
+export const LANG_LABEL: Record<LanguageCode, string> = {
+  fr: 'FR',
+  en: 'EN',
+  es: 'ES',
+  de: 'DE',
 }
 
 type Vars = Record<string, string | number>

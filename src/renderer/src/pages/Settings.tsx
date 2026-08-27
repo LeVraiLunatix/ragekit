@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { FolderSearch, FolderOpen, CheckCircle2, XCircle } from 'lucide-react'
 import type { LanguageCode } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
-import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, FLAG } from '@/i18n'
+import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, LANG_LABEL } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -95,7 +95,14 @@ export function SettingsPage(): ReactNode {
                   : 'border-line text-ink-soft hover:border-ink-faint/50 hover:text-ink',
               )}
             >
-              <span className="text-base leading-none">{FLAG[code]}</span>
+              <span
+                className={cn(
+                  'grid size-6 place-items-center rounded-md text-[10px] font-bold tracking-wider',
+                  language === code ? 'bg-brand/20 text-brand-hi' : 'bg-bg-hover text-ink-soft',
+                )}
+              >
+                {LANG_LABEL[code]}
+              </span>
               {NATIVE_NAME[code]}
             </button>
           ))}

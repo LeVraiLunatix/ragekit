@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useState, type ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import {
   Gamepad2,
   FolderSearch,
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { LanguageCode } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
-import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, FLAG } from '@/i18n'
+import { useI18n, LANGUAGE_ORDER, NATIVE_NAME, LANG_LABEL } from '@/i18n'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { StepShell } from './StepShell'
@@ -102,7 +102,14 @@ function LanguageStep({
                   transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                 />
               )}
-              <span className="text-2xl leading-none">{FLAG[code]}</span>
+              <span
+                className={cn(
+                  'grid size-9 shrink-0 place-items-center rounded-lg text-[12px] font-bold tracking-wider',
+                  active ? 'bg-brand/20 text-brand-hi' : 'bg-bg-hover text-ink-soft',
+                )}
+              >
+                {LANG_LABEL[code]}
+              </span>
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium">{NATIVE_NAME[code]}</span>
                 <span className="block truncate text-[11px] text-ink-faint">{t(`lang.${code}`)}</span>
@@ -329,44 +336,32 @@ function DoneStep({ onBack }: { onBack: () => void }): ReactNode {
 }
 
 export function Onboarding(): ReactNode {
-  const [[step, dir], setStep] = useState<[number, number]>([0, 1])
-  const go = (next: number): void => setStep([next, next > step ? 1 : -1])
+  const [{ step, dir }, setState] = useState<{ step: number; dir: number }>({ step: 0, dir: 1 })
+  const go = (next: number): void =>
+    setState(({ step: cur }) => ({ step: next, dir: next >= cur ? 1 : -1 }))
 
-  const steps = useMemo(
-    () => [
-      <WelcomeStep key="welcome" onNext={() => go(1)} />,
-      <LanguageStep key="language" onNext={() => go(2)} onBack={() => go(0)} />,
-      <GameStep key="game" onNext={() => go(3)} onBack={() => go(1)} />,
-      <SafetyStep key="safety" onNext={() => go(4)} onBack={() => go(2)} />,
-      <DoneStep key="done" onBack={() => go(3)} />,
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [step],
-  )
+  const steps = [
+    <WelcomeStep key="welcome" onNext={() => go(1)} />,
+    <LanguageStep key="language" onNext={() => go(2)} onBack={() => go(0)} />,
+    <GameStep key="game" onNext={() => go(3)} onBack={() => go(1)} />,
+    <SafetyStep key="safety" onNext={() => go(4)} onBack={() => go(2)} />,
+    <DoneStep key="done" onBack={() => go(3)} />,
+  ]
 
   return (
     <div className="relative flex h-full items-center justify-center overflow-hidden bg-bg">
       <Aurora />
       <div className="drag-region absolute inset-x-0 top-0 h-9" />
       <div className="relative w-[min(460px,calc(100vw-48px))]">
-        <div className="rounded-2xl border border-line bg-bg-card/85 p-7 shadow-card backdrop-blur-xl">
-          <AnimatePresence mode="wait" custom={dir} initial={false}>
-            <motion.div
-              key={step}
-              custom={dir}
-              variants={{
-                enter: (d: number) => ({ x: d > 0 ? 36 : -36, opacity: 0 }),
-                center: { x: 0, opacity: 1 },
-                exit: (d: number) => ({ x: d > 0 ? -36 : 36, opacity: 0 }),
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.26, ease: EASE }}
-            >
-              {steps[step]}
-            </motion.div>
-          </AnimatePresence>
+        <div className="overflow-hidden rounded-2xl border border-line bg-bg-card/85 p-7 shadow-card backdrop-blur-xl">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: dir * 34 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, ease: EASE }}
+          >
+            {steps[step]}
+          </motion.div>
         </div>
       </div>
     </div>
