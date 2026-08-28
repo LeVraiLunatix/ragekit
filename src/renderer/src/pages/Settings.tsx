@@ -7,6 +7,8 @@ import {
   ShieldCheck,
   ScanLine,
   KeyRound,
+  RefreshCw,
+  ArrowUpCircle,
 } from 'lucide-react'
 import type { IntegrityReport, LanguageCode } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -166,6 +168,68 @@ function IntegrityCard(): ReactNode {
   )
 }
 
+function UpdatesCard(): ReactNode {
+  const { t } = useI18n()
+  const version = useAppStore((s) => s.appVersion)
+  const update = useAppStore((s) => s.update)
+  const [busy, setBusy] = useState(false)
+
+  const line =
+    update.state === 'checking'
+      ? t('update.checking')
+      : update.state === 'downloading'
+        ? t('update.downloading', { version: update.version ?? '' })
+        : update.state === 'ready'
+          ? t('update.ready', { version: update.version ?? '' })
+          : update.state === 'error'
+            ? update.message || t('update.error')
+            : update.state === 'dev'
+              ? t('update.dev')
+              : t('update.upToDate')
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="flex items-center gap-2">
+        <ArrowUpCircle className="size-4 text-brand" />
+        <h2 className="text-sm font-semibold">{t('update.title')}</h2>
+        {version && <Badge tone="neutral">v{version}</Badge>}
+      </div>
+      <p
+        className={cn(
+          'mt-2 text-[12px] leading-relaxed',
+          update.state === 'error' ? 'text-bad' : 'text-ink-faint',
+        )}
+      >
+        {line}
+      </p>
+      <div className="mt-3 flex gap-2">
+        <Button
+          size="sm"
+          loading={busy || update.state === 'checking'}
+          disabled={update.state === 'dev' || update.state === 'downloading'}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await window.api.update.check()
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          <RefreshCw className="size-4" />
+          {t('update.checkNow')}
+        </Button>
+        {update.state === 'ready' && (
+          <Button size="sm" variant="primary" onClick={() => void window.api.update.install()}>
+            {t('update.restart')}
+          </Button>
+        )}
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">{t('update.note')}</p>
+    </Card>
+  )
+}
+
 export function SettingsPage(): ReactNode {
   const { t, language } = useI18n()
   const { config, setGame, setLanguage } = useAppStore()
@@ -268,6 +332,7 @@ export function SettingsPage(): ReactNode {
         </div>
       </Card>
 
+      <UpdatesCard />
       <IntegrityCard />
       <NgKeysCard />
 

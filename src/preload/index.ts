@@ -24,6 +24,7 @@ import type {
   OivInspection,
   OivInstallReport,
   OivTarget,
+  UpdateStatus,
 } from '@shared/types'
 
 export interface FileConflict {
@@ -155,6 +156,12 @@ const api = {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke(IPC.openExternal, url),
     openGameFolder: (): Promise<void> => ipcRenderer.invoke(IPC.openGameFolder),
     pathForFile: (file: File): string => webUtils.getPathForFile(file),
+    version: (): Promise<string> => ipcRenderer.invoke(IPC.appVersion),
+  },
+  update: {
+    check: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.updateCheck),
+    status: (): Promise<UpdateStatus> => ipcRenderer.invoke(IPC.updateStatus),
+    install: (): Promise<boolean> => ipcRenderer.invoke(IPC.updateInstall),
   },
   on: {
     taskProgress: (cb: (p: TaskProgress) => void): (() => void) => {
@@ -166,6 +173,11 @@ const api = {
       const listener = (): void => cb()
       ipcRenderer.on(IPC.evtModsChanged, listener)
       return () => ipcRenderer.removeListener(IPC.evtModsChanged, listener)
+    },
+    updateStatus: (cb: (s: UpdateStatus) => void): (() => void) => {
+      const listener = (_e: unknown, s: UpdateStatus): void => cb(s)
+      ipcRenderer.on(IPC.evtUpdateStatus, listener)
+      return () => ipcRenderer.removeListener(IPC.evtUpdateStatus, listener)
     },
   },
 }

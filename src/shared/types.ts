@@ -430,6 +430,16 @@ export interface WerReport {
   signatures: string[]
 }
 
+/** State of the in-app auto-updater. */
+export interface UpdateStatus {
+  state: 'idle' | 'dev' | 'checking' | 'downloading' | 'ready' | 'error'
+  /** Version being downloaded / ready to install. */
+  version?: string
+  /** 0..100 while downloading. */
+  percent?: number
+  message?: string
+}
+
 /** Generic progress event streamed from long-running main-process tasks. */
 export interface TaskProgress {
   taskId: string

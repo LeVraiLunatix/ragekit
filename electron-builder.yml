@@ -4,6 +4,13 @@ copyright: Copyright © 2026 LeVraiLunatix
 directories:
   buildResources: build
   output: release/${version}
+# Auto-update source. electron-updater reads this to find latest.yml on the
+# GitHub Release; the release itself is uploaded by the CI workflow, so the
+# build never publishes on its own (dist runs with --publish never).
+publish:
+  provider: github
+  owner: LeVraiLunatix
+  repo: ragekit
 files:
   - out/**/*
   - package.json

@@ -508,6 +508,18 @@ export const fr: Dict = {
     missing: '{count} manquant(s)',
     extra: '{count} ajouté(s)',
   },
+  update: {
+    title: 'Mises à jour',
+    checkNow: 'Vérifier maintenant',
+    checking: 'Recherche de mises à jour…',
+    upToDate: 'Tu es sur la dernière version.',
+    downloading: 'Téléchargement de {version}…',
+    ready: 'La version {version} est prête à être installée.',
+    restart: 'Redémarrer pour installer',
+    error: 'La vérification a échoué.',
+    dev: 'Les mises à jour ne fonctionnent que dans l’app installée.',
+    note: 'Ragekit se met à jour depuis les GitHub Releases — les nouvelles versions se téléchargent en arrière-plan et s’installent au redémarrage.',
+  },
   time: {
     justNow: 'à l’instant',
     minutesAgo: 'il y a {n} min',

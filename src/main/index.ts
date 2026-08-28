@@ -5,6 +5,7 @@ import { store, libraryDir, backupsDir, migrateDataDir } from './store'
 import { registerIpc } from './ipc'
 import { ensureCategories } from './mods/library'
 import { startGameWatch } from './watch'
+import { initAutoUpdate } from './updater'
 import { IPC } from '@shared/ipc'
 import type { LanguageCode } from '@shared/types'
 
@@ -76,6 +77,7 @@ app.whenReady().then(async () => {
   await ensureCategories().catch((err) => console.error('category backfill failed:', err))
   registerIpc()
   createWindow()
+  initAutoUpdate()
 
   const notifyModsChanged = (): void => {
     for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.evtModsChanged, null)

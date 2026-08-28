@@ -7,6 +7,7 @@ import type {
   LaunchReport,
   Mod,
   Profile,
+  UpdateStatus,
 } from '@shared/types'
 import type { FileConflict } from '../../../preload'
 
@@ -31,13 +32,16 @@ interface AppState {
   busy: string | null
   lastLaunch: LaunchReport | null
   launching: boolean
-  /** Absolute paths of .oiv packages waiting for the OpenIV-style installer. */
+  /** Absolute paths of .oiv packages waiting for the installer dialog. */
   oivQueue: string[]
+  appVersion: string
+  update: UpdateStatus
 
   setRoute: (r: Route) => void
   setBusy: (label: string | null) => void
   enqueueOiv: (paths: string[]) => void
   dequeueOiv: () => void
+  setUpdate: (s: UpdateStatus) => void
   bootstrap: () => Promise<void>
   refreshMods: () => Promise<void>
   refreshDeps: () => Promise<void>
@@ -62,12 +66,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   lastLaunch: null,
   launching: false,
   oivQueue: [],
+  appVersion: '',
+  update: { state: 'idle' },
 
   setRoute: (route) => set({ route }),
   setBusy: (busy) => set({ busy }),
   enqueueOiv: (paths) =>
     set((s) => ({ oivQueue: [...s.oivQueue, ...paths.filter((p) => !s.oivQueue.includes(p))] })),
   dequeueOiv: () => set((s) => ({ oivQueue: s.oivQueue.slice(1) })),
+  setUpdate: (update) => set({ update }),
 
   bootstrap: async () => {
     const [config, mods, profiles] = await Promise.all([
@@ -79,6 +86,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     void get().refreshMods() // also pulls conflicts
     if (config.game?.valid) void get().refreshDeps()
     void window.api.game.lastLaunch().then((lastLaunch) => set({ lastLaunch }))
+    void window.api.misc.version().then((appVersion) => set({ appVersion }))
+    void window.api.update.status().then((update) => set({ update }))
   },
 
   refreshMods: async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, ArrowUpCircle, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import { PromptProvider } from '@/components/PromptDialog'
@@ -32,6 +32,35 @@ function OnlineSafeBanner(): ReactNode {
   )
 }
 
+function UpdateBanner(): ReactNode {
+  const { t } = useI18n()
+  const update = useAppStore((s) => s.update)
+  if (update.state === 'downloading') {
+    return (
+      <div className="flex items-center gap-2.5 border-b border-brand/20 bg-brand/10 px-4 py-2 text-[12.5px] text-brand-hi">
+        <Loader2 className="size-4 shrink-0 animate-spin" />
+        <span className="font-medium">
+          {t('update.downloading', { version: update.version ?? '' })}
+        </span>
+        {update.percent != null && <span className="text-brand-hi/70">{update.percent}%</span>}
+      </div>
+    )
+  }
+  if (update.state !== 'ready') return null
+  return (
+    <div className="flex items-center gap-2.5 border-b border-brand/25 bg-brand/10 px-4 py-2 text-[12.5px] text-brand-hi">
+      <ArrowUpCircle className="size-4 shrink-0" />
+      <span className="font-medium">{t('update.ready', { version: update.version ?? '' })}</span>
+      <button
+        onClick={() => void window.api.update.install()}
+        className="no-drag ml-auto rounded-md bg-brand px-2.5 py-1 text-[11.5px] font-semibold text-black transition-colors hover:bg-brand-hi"
+      >
+        {t('update.restart')}
+      </button>
+    </div>
+  )
+}
+
 function Shell(): ReactNode {
   const route = useAppStore((s) => s.route)
   const safe = useAppStore((s) => !!s.config?.onlineSafeMode)
@@ -42,6 +71,7 @@ function Shell(): ReactNode {
       <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} />
       <OivInstallDialog />
       <AdminBanner />
+      <UpdateBanner />
       {safe && <OnlineSafeBanner />}
       <div className="flex min-h-0 flex-1">
         <Sidebar />
@@ -73,15 +103,21 @@ export default function App(): ReactNode {
   const { ready, config, bootstrap, refreshMods, refreshDeps } = useAppStore()
 
   const refreshProfiles = useAppStore((s) => s.refreshProfiles)
+  const setUpdate = useAppStore((s) => s.setUpdate)
 
   useEffect(() => {
     void bootstrap()
-    return window.api.on.modsChanged(() => {
+    const offMods = window.api.on.modsChanged(() => {
       void refreshMods()
       void refreshDeps()
       void refreshProfiles()
     })
-  }, [bootstrap, refreshMods, refreshDeps, refreshProfiles])
+    const offUpdate = window.api.on.updateStatus(setUpdate)
+    return () => {
+      offMods()
+      offUpdate()
+    }
+  }, [bootstrap, refreshMods, refreshDeps, refreshProfiles, setUpdate])
 
   return (
     <I18nProvider>

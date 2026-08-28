@@ -309,8 +309,18 @@ if (typeof window !== 'undefined' && !window.api) {
       writable: async () => ({ elevated: true, gamePath: null, gameWritable: true }),
       relaunchAdmin: async () => false,
     },
-    misc: { openExternal: async () => {}, openGameFolder: async () => {}, pathForFile: () => '' },
-    on: { taskProgress: () => noop, modsChanged: () => noop },
+    misc: {
+      openExternal: async () => {},
+      openGameFolder: async () => {},
+      pathForFile: () => '',
+      version: async () => '0.1.1',
+    },
+    update: {
+      check: async () => ({ state: 'idle' as const }),
+      status: async () => ({ state: 'idle' as const }),
+      install: async () => false,
+    },
+    on: { taskProgress: () => noop, modsChanged: () => noop, updateStatus: () => noop },
   }
 
   const mockMod = {

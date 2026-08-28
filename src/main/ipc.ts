@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { app, ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { AppConfig, FoundMod, GameInfo, LanguageCode, RemoteMod } from '@shared/types'
 import { store, migrateDataDir } from './store'
@@ -45,6 +45,7 @@ import {
 } from './rpf/browser'
 import { magicCached, ngReady, ngReason, refetchMagic, loadNgKeys } from './rpf/ngkeys'
 import { isElevated, canWrite, relaunchElevated, guardGameWrite } from './elevation'
+import { checkForUpdates, getUpdateStatus, installUpdateNow } from './updater'
 import { join } from 'node:path'
 import {
   listProfiles,
@@ -491,4 +492,10 @@ export function registerIpc(): void {
     const game = getConfig().game
     if (game?.valid) shell.openPath(game.path)
   })
+
+  ipcMain.handle(IPC.appVersion, () => app.getVersion())
+
+  ipcMain.handle(IPC.updateCheck, () => checkForUpdates())
+  ipcMain.handle(IPC.updateStatus, () => getUpdateStatus())
+  ipcMain.handle(IPC.updateInstall, () => installUpdateNow())
 }

@@ -91,6 +91,12 @@ export const IPC = {
   // misc
   openExternal: 'misc:openExternal',
   openGameFolder: 'misc:openGameFolder',
+  appVersion: 'misc:appVersion',
+
+  // in-app auto-update
+  updateCheck: 'update:check',
+  updateStatus: 'update:status',
+  updateInstall: 'update:install',
 
   // activity / undo
   activityList: 'activity:list',
@@ -104,6 +110,7 @@ export const IPC = {
   // events (main -> renderer)
   evtTaskProgress: 'evt:taskProgress',
   evtModsChanged: 'evt:modsChanged',
+  evtUpdateStatus: 'evt:updateStatus',
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

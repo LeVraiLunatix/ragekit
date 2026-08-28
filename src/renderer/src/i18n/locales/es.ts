@@ -504,6 +504,18 @@ export const es: Dict = {
     missing: '{count} faltantes',
     extra: '{count} añadidos',
   },
+  update: {
+    title: 'Actualizaciones',
+    checkNow: 'Buscar ahora',
+    checking: 'Buscando actualizaciones…',
+    upToDate: 'Estás en la última versión.',
+    downloading: 'Descargando {version}…',
+    ready: 'La versión {version} está lista para instalar.',
+    restart: 'Reiniciar para actualizar',
+    error: 'La comprobación falló.',
+    dev: 'Las actualizaciones solo funcionan en la app instalada.',
+    note: 'Ragekit se actualiza desde GitHub Releases: las nuevas versiones se descargan en segundo plano y se instalan al reiniciar.',
+  },
   time: {
     justNow: 'ahora mismo',
     minutesAgo: 'hace {n} min',

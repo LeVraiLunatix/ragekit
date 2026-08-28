@@ -502,6 +502,18 @@ export const en = {
     missing: '{count} missing',
     extra: '{count} added',
   },
+  update: {
+    title: 'Updates',
+    checkNow: 'Check now',
+    checking: 'Checking for updates…',
+    upToDate: "You're on the latest version.",
+    downloading: 'Downloading {version}…',
+    ready: 'Version {version} is ready to install.',
+    restart: 'Restart to update',
+    error: 'Update check failed.',
+    dev: 'Updates only run in the installed app.',
+    note: 'Ragekit updates itself from GitHub Releases — new versions download in the background and install on restart.',
+  },
   time: {
     justNow: 'just now',
     minutesAgo: '{n}m ago',
