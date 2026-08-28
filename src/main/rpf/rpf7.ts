@@ -593,7 +593,328 @@ export class Rpf7 {
       await srcFd.close()
     }
   }
+
+  /**
+   * Rebuild the archive to `destPath` applying add / replace / delete mutations
+   * on the directory tree. The entry table and name table are regenerated in
+   * CodeWalker's canonical order (stack DFS, children sorted `String.CompareOrdinal`,
+   * names deduped and padded to 16). New files are always stored as binary
+   * entries. OPEN or AES archives only — an NG archive must be converted first.
+   */
+  async rebuildTree(
+    mutations: RpfMutation[],
+    destPath: string,
+  ): Promise<{ added: string[]; replaced: string[]; deleted: string[]; missing: string[] }> {
+    if (this.source.kind !== 'file') throw new Error('Only a file-backed archive can be rebuilt.')
+    if (this.encryption === 'NG') {
+      throw new Error('NG-encrypted archives must be converted to OPEN before editing.')
+    }
+    if (this.encryption === 'AES' && !this.keys.aes) {
+      throw new Error('Editing this archive needs the AES key from GTA5.exe.')
+    }
+    const srcPath = this.source.path
+
+    // ── 1. parse the raw entry table into a mutable tree ──────────────────────
+    const raw: RawEnt[] = []
+    for (let i = 0; i < this.entryCount; i++) {
+      const o = i * 16
+      const w0 = this.entriesBuf.readUInt32LE(o)
+      const w1 = this.entriesBuf.readUInt32LE(o + 4)
+      const w2 = this.entriesBuf.readUInt32LE(o + 8)
+      const w3 = this.entriesBuf.readUInt32LE(o + 12)
+      const name = readCName(this.namesBuf, w0 & 0xffff)
+      if (w1 === DIR_IDENT) {
+        raw.push({ kind: 'dir', name, childIndex: w2, childCount: w3, children: [] })
+      } else if ((w1 & 0x80000000) === 0) {
+        const fileSize24 = ((w0 >>> 16) | ((w1 & 0xff) << 16)) & 0xffffff
+        raw.push({
+          kind: 'binary',
+          name,
+          offsetSectors: (w1 >>> 8) & 0xffffff,
+          fileSize24,
+          uncompressed: w2 >>> 0,
+          encType: w3 >>> 0,
+        })
+      } else {
+        raw.push({
+          kind: 'resource',
+          name,
+          offsetSectors: (w1 >>> 8) & 0x7fffff,
+          fileSize24: (w0 >>> 16) | ((w1 & 0xff) << 16),
+          sysFlags: w2 >>> 0,
+          gfxFlags: w3 >>> 0,
+        })
+      }
+    }
+    // sorted original file offsets → bound a resource block by the next block
+    const origFileOffsets = raw
+      .filter((e) => e.kind !== 'dir')
+      .map((e) => (e as RawFile).offsetSectors * SECTOR)
+      .sort((a, b) => a - b)
+    const origSize = (await fs.stat(srcPath)).size
+    const spanEnd = (off: number): number => {
+      for (const fo of origFileOffsets) if (fo > off) return fo
+      return origSize
+    }
+
+    const link = (idx: number): RawEnt => {
+      const e = raw[idx]
+      if (e.kind === 'dir') {
+        for (let c = e.childIndex; c < e.childIndex + e.childCount; c++) e.children.push(link(c))
+      }
+      return e
+    }
+    const root = link(0)
+    if (root.kind !== 'dir') throw new Error('RPF root is not a directory.')
+
+    // ── 2. apply mutations ───────────────────────────────────────────────────
+    const added: string[] = []
+    const replaced: string[] = []
+    const deleted: string[] = []
+    const missing: string[] = []
+
+    const findChild = (dir: RawDir, nm: string): RawEnt | undefined =>
+      dir.children.find((c) => c.name.toLowerCase() === nm.toLowerCase())
+
+    for (const m of mutations) {
+      const parts = m.path.replace(/\\/g, '/').split('/').filter(Boolean)
+      const fname = parts.pop()!
+      let dir: RawDir = root
+      let ok = true
+      for (const seg of parts) {
+        let next = findChild(dir, seg)
+        if (!next && m.op === 'add') {
+          next = { kind: 'dir', name: seg, childIndex: 0, childCount: 0, children: [] }
+          dir.children.push(next)
+        }
+        if (!next || next.kind !== 'dir') {
+          ok = false
+          break
+        }
+        dir = next
+      }
+      if (!ok) {
+        missing.push(m.path)
+        continue
+      }
+      const existing = findChild(dir, fname)
+      if (m.op === 'delete') {
+        if (existing) {
+          dir.children = dir.children.filter((c) => c !== existing)
+          deleted.push(m.path)
+        } else missing.push(m.path)
+        continue
+      }
+      // add / replace
+      if (existing && existing.kind === 'binary') {
+        existing.newContent = m.content
+        replaced.push(m.path)
+      } else if (existing && existing.kind === 'resource') {
+        missing.push(m.path) // resource replacement not supported here yet
+      } else if (!existing && m.op === 'add') {
+        dir.children.push({
+          kind: 'binary',
+          name: fname,
+          offsetSectors: 0,
+          fileSize24: 0,
+          uncompressed: 0,
+          encType: 0,
+          isNew: true,
+          newContent: m.content,
+        })
+        added.push(m.path)
+      } else {
+        missing.push(m.path)
+      }
+    }
+
+    // ── 3. regenerate entry list in CodeWalker canonical order ───────────────
+    const all: RawEnt[] = [root]
+    const stack: RawDir[] = [root]
+    while (stack.length) {
+      const item = stack.pop()!
+      item.entriesIndex = all.length
+      item.entriesCount = item.children.length
+      const sorted = [...item.children].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+      for (const child of sorted) {
+        all.push(child)
+        if (child.kind === 'dir') stack.push(child)
+      }
+    }
+    const entryCount = all.length
+
+    // ── 4. name table (dedup by exact name, pad to 16) ──────────────────────
+    const nameOff = new Map<string, number>()
+    const nameParts: Buffer[] = []
+    let namesLen = 0
+    for (const e of all) {
+      const nm = e.kind === 'dir' && e === root ? '' : e.name
+      const hit = nameOff.get(nm)
+      if (hit != null) {
+        e.nameOffset = hit
+      } else {
+        e.nameOffset = namesLen
+        nameOff.set(nm, namesLen)
+        const b = Buffer.from(`${nm}\0`, 'latin1')
+        nameParts.push(b)
+        namesLen += b.length
+      }
+    }
+    const namesRaw = Buffer.concat(nameParts)
+    const namesBuf = Buffer.alloc(alignUp(namesRaw.length, 16))
+    namesRaw.copy(namesBuf)
+    const namesLength = namesBuf.length
+
+    // ── 5. lay out file blocks, build the new entry table ───────────────────
+    const entries = Buffer.alloc(entryCount * 16)
+    interface OutBlock { fromOrigOffset?: number; origLen?: number; payload?: Buffer; at: number }
+    const blocks: OutBlock[] = []
+    let cursor = alignUp(16 + entryCount * 16 + namesLength, SECTOR)
+
+    for (let i = 0; i < entryCount; i++) {
+      const e = all[i]
+      const o = i * 16
+      if (e.kind === 'dir') {
+        entries.writeUInt32LE((e.nameOffset ?? 0) & 0xffff, o)
+        entries.writeUInt32LE(DIR_IDENT, o + 4)
+        entries.writeUInt32LE((e.entriesIndex ?? 0) >>> 0, o + 8)
+        entries.writeUInt32LE((e.entriesCount ?? 0) >>> 0, o + 12)
+        continue
+      }
+
+      let payload: Buffer | undefined
+      let fileSize24: number
+      let uncompressed: number
+      let origLen = 0
+      let fromOrigOffset: number | undefined
+
+      if (e.kind === 'binary' && e.newContent) {
+        const content = e.newContent
+        const comp = deflateRawSync(content, { level: 9 })
+        const useC = comp.length < content.length
+        payload = useC ? comp : content
+        fileSize24 = useC ? comp.length : 0
+        uncompressed = content.length
+      } else if (e.kind === 'binary') {
+        fileSize24 = e.fileSize24
+        uncompressed = e.uncompressed
+        origLen = e.fileSize24 > 0 ? e.fileSize24 : e.uncompressed
+        fromOrigOffset = e.offsetSectors * SECTOR
+      } else {
+        // resource — verbatim, span-bounded
+        fileSize24 = e.fileSize24
+        uncompressed = 0
+        origLen = spanEnd(e.offsetSectors * SECTOR) - e.offsetSectors * SECTOR
+        fromOrigOffset = e.offsetSectors * SECTOR
+      }
+
+      const blockLen = payload ? payload.length : origLen
+      const at = cursor
+      cursor += alignUp(blockLen, SECTOR)
+      blocks.push({ payload, fromOrigOffset, origLen, at })
+      const offSectors = at / SECTOR
+
+      if (e.kind === 'resource') {
+        const fs24 = Math.min(e.fileSize24, 0xffffff)
+        entries.writeUInt32LE((((e.nameOffset ?? 0) & 0xffff) | ((fs24 & 0xffff) << 16)) >>> 0, o)
+        entries.writeUInt32LE(
+          (((fs24 >>> 16) & 0xff) | ((offSectors & 0x7fffff) << 8) | 0x80000000) >>> 0,
+          o + 4,
+        )
+        entries.writeUInt32LE(e.sysFlags >>> 0, o + 8)
+        entries.writeUInt32LE(e.gfxFlags >>> 0, o + 12)
+      } else {
+        writeBinaryEntry(entries, i, {
+          nameOffset: (e.nameOffset ?? 0) & 0xffff,
+          sizeOnDisk: fileSize24,
+          offsetSectors: offSectors,
+          uncompressedSize: uncompressed,
+          encrypted: false,
+        })
+      }
+    }
+
+    // ── 6. encrypt TOC halves if AES, assemble, write ──────────────────────
+    let outEntries: Buffer = entries
+    let outNames: Buffer = namesBuf
+    if (this.encryption === 'AES') {
+      outEntries = aesEncrypt(entries, this.keys.aes!)
+      outNames = aesEncrypt(namesBuf, this.keys.aes!)
+      const back = aesDecrypt(outEntries, this.keys.aes!)
+      if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(entries)) {
+        throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
+      }
+    }
+    const firstOffset = alignUp(16 + outEntries.length + outNames.length, SECTOR)
+    const toc = Buffer.alloc(firstOffset)
+    toc.writeUInt32LE(RPF7_MAGIC, 0)
+    toc.writeUInt32LE(entryCount, 4)
+    toc.writeUInt32LE(namesLength, 8)
+    toc.writeUInt32LE(this.encryption === 'AES' ? 0x0ffffff9 : 0x4e45504f, 12)
+    outEntries.copy(toc, 16)
+    outNames.copy(toc, 16 + outEntries.length)
+
+    const srcFd = await fs.open(srcPath, 'r')
+    const tmp = `${destPath}.rktmp`
+    const outFd = await fs.open(tmp, 'w')
+    try {
+      await outFd.write(toc, 0, toc.length, 0)
+      for (const b of blocks) {
+        const data = b.payload ?? (await readInto(srcFd, b.fromOrigOffset!, b.origLen!))
+        const padded = Buffer.alloc(alignUp(data.length, SECTOR))
+        data.copy(padded)
+        await outFd.write(padded, 0, padded.length, b.at)
+      }
+    } finally {
+      await outFd.close()
+      await srcFd.close()
+    }
+    await fs.rm(destPath, { force: true })
+    await fs.rename(tmp, destPath)
+    return { added, replaced, deleted, missing }
+  }
 }
+
+export interface RpfMutation {
+  op: 'add' | 'replace' | 'delete'
+  /** inner path, slash-separated */
+  path: string
+  /** required for add / replace */
+  content?: Buffer
+}
+
+interface RawDir {
+  kind: 'dir'
+  name: string
+  nameOffset?: number
+  childIndex: number
+  childCount: number
+  children: RawEnt[]
+  entriesIndex?: number
+  entriesCount?: number
+}
+interface RawBinary {
+  kind: 'binary'
+  name: string
+  nameOffset?: number
+  offsetSectors: number
+  fileSize24: number
+  uncompressed: number
+  encType: number
+  isNew?: boolean
+  newContent?: Buffer
+}
+interface RawResource {
+  kind: 'resource'
+  name: string
+  nameOffset?: number
+  offsetSectors: number
+  fileSize24: number
+  sysFlags: number
+  gfxFlags: number
+}
+type RawFile = RawBinary | RawResource
+type RawEnt = RawDir | RawFile
 
 async function readInto(fd: fs.FileHandle, offset: number, len: number): Promise<Buffer> {
   const out = Buffer.alloc(len)

@@ -5,7 +5,7 @@ import { withOivZip, type OivZip } from './oivZip'
 import { ensureDir, copyFile, pathExists, removeFileAndPrune } from './fsutil'
 import { loadAesKey } from '../rpf/crypto'
 import { loadNgKeys } from '../rpf/ngkeys'
-import { Rpf7 } from '../rpf/rpf7'
+import { Rpf7, type RpfMutation } from '../rpf/rpf7'
 
 const slash = (p: string): string => p.split(sep).join('/')
 
@@ -21,11 +21,11 @@ export interface OivApplyResult {
  * - Loose files: copied / deleted with per-file backups (fully reversible).
  * - `<add>` into a level-1 .rpf (target = mods folder): the archive is pulled
  *   into mods/ if missing, NG-encrypted vanilla archives (update.rpf, x64*.rpf,
- *   common.rpf) are decrypted to OPEN in place once, then a single rebuild
- *   applies every same-name replacement for that archive. A whole-archive backup
- *   is taken first.
- * - Still deferred: nested archives, brand-new files inside a .rpf, deletes
- *   inside a .rpf, and in-place XML edits — reported as skipped.
+ *   common.rpf) are decrypted to OPEN in place once, then a single rebuild per
+ *   archive applies every replacement and every brand-new file (entry table and
+ *   name table regenerated). A whole-archive backup is taken first.
+ * - Still deferred: nested archives, replacing a resource (.ytd/.yft…) inside a
+ *   .rpf, deletes inside a .rpf, and in-place XML edits — reported as skipped.
  */
 export async function applyOivPackage(
   storedOivPath: string,
@@ -161,26 +161,34 @@ export async function applyOivPackage(
           rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys })
         }
 
-        const replaceMap = new Map<string, Buffer>()
-        const staged: OivOp[] = []
+        const mutations: RpfMutation[] = []
+        const staged: { op: OivOp; path: string; add: boolean }[] = []
         for (const op of ops) {
           const inner = rpf.get(op.target)
-          if (!inner || inner.isDir) { push(op, 'skipped', `adds a new file to ${archiveRel} — not supported yet`); continue }
-          if (inner.isResource) { push(op, 'skipped', 'resource file inside a .rpf — not supported yet'); continue }
+          if (inner?.isDir) { push(op, 'skipped', `${op.target} is a folder in ${archiveRel}`); continue }
+          if (inner?.isResource) { push(op, 'skipped', `resource replacement in ${archiveRel} not supported yet`); continue }
           const buf = op.source ? await extract(zip, op.source) : null
           if (!buf) { push(op, 'failed', 'source missing in package'); continue }
-          replaceMap.set(inner.path, buf)
-          staged.push(op)
+          const path = (inner?.path ?? op.target).replace(/\\/g, '/').toLowerCase()
+          mutations.push({ op: inner ? 'replace' : 'add', path, content: buf })
+          staged.push({ op, path, add: !inner })
         }
-        if (replaceMap.size === 0) continue
+        if (mutations.length === 0) continue
 
         await backup(archiveFs)
-        const { replaced } = await rpf.rebuild(replaceMap, archiveFs)
+        const hasAdds = mutations.some((m) => m.op === 'add')
+        const done2 = new Set<string>()
+        if (hasAdds) {
+          const r = await rpf.rebuildTree(mutations, archiveFs)
+          for (const p of [...r.added, ...r.replaced]) done2.add(p)
+        } else {
+          const map = new Map(mutations.map((m) => [m.path, m.content!]))
+          const r = await rpf.rebuild(map, archiveFs)
+          for (const p of r.replaced) done2.add(p)
+        }
         written.add(slash(relative(gamePath, archiveFs)))
-        const done2 = new Set(replaced)
-        for (const op of staged) {
-          const inner = rpf.get(op.target)
-          push(op, inner && done2.has(inner.path) ? 'applied' : 'failed', inner && done2.has(inner.path) ? undefined : 'rebuild did not include this file')
+        for (const s of staged) {
+          push(s.op, done2.has(s.path) ? 'applied' : 'failed', done2.has(s.path) ? undefined : 'archive rebuild did not include this file')
         }
       } catch (err) {
         for (const op of ops) push(op, 'failed', err instanceof Error ? err.message : String(err))
