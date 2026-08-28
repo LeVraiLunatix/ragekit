@@ -26,12 +26,34 @@ export class OivZip {
     return new Promise((resolve, reject) => {
       yauzl.open(oivPath, { lazyEntries: true, autoClose: false }, (err, zf) => {
         if (err || !zf) return reject(err ?? new Error('Could not open .oiv package.'))
-        const entries = new Map<string, yauzl.Entry>()
+        const raw = new Map<string, yauzl.Entry>()
         zf.on('entry', (entry: yauzl.Entry) => {
-          if (!/\/$/.test(entry.fileName)) entries.set(norm(entry.fileName), entry)
+          if (!/\/$/.test(entry.fileName)) raw.set(norm(entry.fileName), entry)
           zf.readEntry()
         })
-        zf.on('end', () => resolve(new OivZip(zf, entries)))
+        zf.on('end', () => {
+          // Some .oiv zips nest everything under one top folder while assembly.xml
+          // references sources relative to it. Detect that prefix and also key
+          // every entry without it, so `source="content/x"` still resolves.
+          let prefix = ''
+          for (const k of raw.keys()) {
+            if (k === 'assembly.xml') {
+              prefix = ''
+              break
+            }
+            if (k.endsWith('/assembly.xml') && (prefix === '' || k.length < prefix.length)) {
+              prefix = k.slice(0, -'assembly.xml'.length)
+            }
+          }
+          const entries = new Map<string, yauzl.Entry>()
+          for (const [k, v] of raw) {
+            entries.set(k, v)
+            if (prefix && k.startsWith(prefix) && !entries.has(k.slice(prefix.length))) {
+              entries.set(k.slice(prefix.length), v)
+            }
+          }
+          resolve(new OivZip(zf, entries))
+        })
         zf.on('error', reject)
         zf.readEntry()
       })
@@ -52,7 +74,7 @@ export class OivZip {
 
   /** All entry names (original case), directories excluded. */
   names(): string[] {
-    return [...this.entries.values()].map((e) => e.fileName)
+    return [...new Set([...this.entries.values()].map((e) => e.fileName))]
   }
 
   /** Read one entry fully into memory. Use only for small entries. */
