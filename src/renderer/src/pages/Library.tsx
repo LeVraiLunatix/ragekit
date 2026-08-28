@@ -296,6 +296,8 @@ export function LibraryPage(): ReactNode {
           const ok = await window.api.system.relaunchAdmin()
           if (!ok) alert(t('admin.devHint'))
         }
+      } else if (msg.includes('No handler registered')) {
+        alert(t('common.restartApp'))
       } else {
         alert(msg)
       }

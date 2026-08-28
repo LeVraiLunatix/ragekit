@@ -8,6 +8,7 @@ export const en = {
     loading: 'Loading…',
     cancel: 'Cancel',
     ok: 'OK',
+    restartApp: 'Restart Ragekit to pick up this update.',
   },
   lang: {
     fr: 'French',

@@ -9,6 +9,7 @@ export const es: Dict = {
     loading: 'Cargando…',
     cancel: 'Cancelar',
     ok: 'OK',
+    restartApp: 'Reinicia Ragekit para aplicar esta actualización.',
   },
   lang: {
     fr: 'Francés',
