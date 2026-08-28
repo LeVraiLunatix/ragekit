@@ -12,24 +12,12 @@
 
   <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#hl)" />
   <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="15.25" fill="none"
-        stroke="#f2a341" stroke-opacity="0.30" stroke-width="1.5" />
+        stroke="#f2a341" stroke-opacity="0.28" stroke-width="1.5" />
 
-  <!-- One continuous R: stem + bowl + leg fused into a single solid shape,
-       with a single counter punched out of the bowl (fill-rule evenodd). -->
-  <g transform="translate(1.6 0)">
-    <path fill="url(#rk)" fill-rule="evenodd" d="M16 13
-      L35 13
-      C43.6 13 49.5 18.7 49.5 25
-      C49.5 31.3 43.6 37 35 37
-      L26 37
-      L26 22
-      L35 22
-      C38.6 22 40.5 23.4 40.5 25
-      C40.5 26.6 38.6 28 35 28
-      L26 28
-      L26 51
-      L16 51
-      Z" />
-    <path fill="url(#rk)" d="M30.5 34.5 L48.8 51 L36.3 51 L21.6 37.9 Z" />
-  </g>
+  <!-- Solid R: one non-self-intersecting outline. -->
+  <path fill="url(#rk)"
+        d="M16 13 L33 13 C42 13 47.5 18 47.5 24.5 C47.5 30.5 43 34.5 35 35 L47 51 L35.5 51 L26 38 L26 51 L16 51 Z" />
+  <!-- Counter, repainted with the badge gradient = clean cut-out. -->
+  <path fill="url(#hl)"
+        d="M26 20 H34 C39 20 41.5 22 41.5 24.5 C41.5 27 39 29 34 29 H26 Z" />
 </svg>
