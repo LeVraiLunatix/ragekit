@@ -4,11 +4,11 @@
 
 # Ragekit
 
-**Un gestionnaire de mods pour Grand Theft Auto V en solo, avec un explorateur d'archives `.rpf` en prime.**
+**Un gestionnaire de mods pour Grand Theft Auto V en solo. Il fait aussi explorateur d'archives `.rpf`.**
 
 Tu ajoutes tes mods une fois, tu les actives ou tu les coupes quand ça te
 chante, et le jour où tu ranges tout, le dossier du jeu se retrouve comme
-avant. L'explorateur `.rpf` marche dans l'esprit d'OpenIV.
+avant.
 
 [![Télécharger](https://img.shields.io/github/v/release/LeVraiLunatix/ragekit?label=T%C3%A9l%C3%A9charger&style=for-the-badge&color=f5a524)](https://github.com/LeVraiLunatix/ragekit/releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-MIT-blue?style=for-the-badge)](LICENSE)
@@ -42,9 +42,9 @@ la première fois : *Informations complémentaires → Exécuter quand même*.
   localise le jeu, on lit l'avertissement, et on démarre.
 - **Détection du jeu.** Steam, Epic, le launcher Rockstar — ou tu pointes le
   dossier à la main.
-- **Import.** Un `.zip`, un `.rar`, un `.oiv` ou juste un dossier. Ragekit trie
-  ce qu'il y a dedans : les `.asi` à la racine, les scripts au bon endroit, les
-  DLL loaders, les arbres `mods/`.
+- **Import.** Un `.zip`, un `.rar`, un `.oiv` ou juste un dossier. Les `.asi`
+  partent à la racine, les scripts au bon endroit, et les DLL loaders et arbres
+  `mods/` avec.
 - **Packages OpenIV `.oiv`.** Les métadonnées et les fichiers loose sont posés ;
   les opérations sur archives `.rpf` sont repérées et signalées.
 - **Install / désinstall propres.** Tout est copié dans une bibliothèque à part.
@@ -52,8 +52,8 @@ la première fois : *Informations complémentaires → Exécuter quand même*.
   place si tu désactives.
 - **Mode Online-safe.** Un bouton, et `dinput8` / `version` / `winmm.dll`,
   `ScriptHookV.dll`, les `.asi` de la racine et les dossiers `mods/` `scripts/`
-  `plugins/` quittent le dossier du jeu. Il redevient identique au vanilla, au
-  fichier près. Tu rebascules quand tu veux rejouer avec tes mods.
+  `plugins/` quittent le dossier du jeu. Il retombe sur du vanilla, au fichier
+  près. Tu rebascules pour rejouer avec tes mods.
 - **Adoption.** Il scanne le dossier du jeu, retrouve les mods que tu as posés à
   la main ou avec un autre outil, et les fait rentrer dans la bibliothèque.
 - **Profils.** Tu enregistres un set de mods sous un nom et tu bascules dessus en
@@ -66,9 +66,9 @@ la première fois : *Informations complémentaires → Exécuter quand même*.
 - **Diagnostic.** Il lit `ScriptHookV.log`, `asiloader.log`, les logs SHVDN et
   `openIV.log`, plus les rapports de crash de Windows, et te pointe l'erreur et
   le module fautif.
-- **Explorateur de fichiers du jeu.** Tu ouvres les archives `.rpf` comme dans
-  OpenIV : extraire, prévisualiser, remplacer. Les archives add-on et celles du
-  dossier `mods/` s'ouvrent sans clé.
+- **Explorateur de fichiers du jeu.** Tu fouilles dans les archives `.rpf` :
+  sortir un fichier, le prévisualiser, le remplacer. Les archives add-on et
+  celles du dossier `mods/` s'ouvrent sans clé.
 - **Empreinte vanilla.** Une empreinte de tes fichiers quand le jeu est propre,
   pour vérifier plus tard si quelque chose a bougé.
 - **Install depuis GTA5-Mods.com** *(expérimental).* Tu colles un lien, il
