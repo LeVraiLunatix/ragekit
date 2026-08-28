@@ -81,10 +81,22 @@ export const en = {
     sortBy: 'Sort by',
     sort: {
       order: 'Load order',
+      category: 'Category',
       name: 'Name A–Z',
       recent: 'Recently added',
       status: 'Status',
       type: 'Type',
+    },
+    category: {
+      vehicle: 'Vehicles',
+      weapon: 'Weapons',
+      ped: 'Peds',
+      map: 'Maps',
+      graphics: 'Graphics',
+      audio: 'Audio',
+      script: 'Scripts',
+      data: 'Game data',
+      other: 'Other',
     },
     filter: {
       all: 'All',

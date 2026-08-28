@@ -83,10 +83,22 @@ export const es: Dict = {
     sortBy: 'Ordenar por',
     sort: {
       order: 'Orden de carga',
+      category: 'Categoría',
       name: 'Nombre A→Z',
       recent: 'Añadido recientemente',
       status: 'Estado',
       type: 'Tipo',
+    },
+    category: {
+      vehicle: 'Vehículos',
+      weapon: 'Armas',
+      ped: 'Personajes',
+      map: 'Mapas',
+      graphics: 'Gráficos',
+      audio: 'Audio',
+      script: 'Scripts',
+      data: 'Datos del juego',
+      other: 'Otros',
     },
     filter: {
       all: 'Todos',

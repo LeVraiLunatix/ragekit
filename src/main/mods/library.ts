@@ -11,6 +11,7 @@ import type {
 } from '@shared/types'
 import { store, libraryDir, backupsDir } from '../store'
 import { classifyFile } from './classify'
+import { detectCategory } from './category'
 import { inferRequiredDeps, dependencyStatus } from './deps'
 import { readOivPackage, stageOivLooseFiles } from './oiv'
 import { walk, ensureDir, copyFile, copyDir, pathExists, removeFileAndPrune } from './fsutil'
@@ -32,6 +33,18 @@ function requireGamePath(): string {
 
 export function listMods(): Mod[] {
   return getMods().sort((a, b) => a.loadOrder - b.loadOrder || a.name.localeCompare(b.name))
+}
+
+/** Fill in `category` for mods imported before that field existed. */
+export async function ensureCategories(): Promise<void> {
+  const mods = getMods()
+  let touched = false
+  for (const m of mods) {
+    if (m.category) continue
+    m.category = await detectCategory(m.sourceDir, m.name).catch(() => 'other' as const)
+    touched = true
+  }
+  if (touched) saveMods(mods)
 }
 
 function nextLoadOrder(): number {
@@ -139,6 +152,7 @@ export async function importFromPaths(paths: string[]): Promise<ImportResult[]> 
       installedFiles: [],
       loadOrder: nextLoadOrder() + results.length,
       tags: [],
+      category: await detectCategory(sourceDir, name),
     }
     mods.push(mod)
     saveMods(mods)

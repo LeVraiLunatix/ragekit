@@ -15,15 +15,31 @@ import {
   Search,
   Power,
 } from 'lucide-react'
-import type { FoundMod, Mod } from '@shared/types'
+import type { FoundMod, Mod, ModCategory } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { GameModeCard } from '@/components/GameModeCard'
 import { Button, Card, Badge, Toggle, EmptyState } from '@/components/ui'
 
-type SortKey = 'order' | 'name' | 'recent' | 'status' | 'type'
+type SortKey = 'order' | 'category' | 'name' | 'recent' | 'status' | 'type'
 type FilterKey = 'all' | 'installed' | 'disabled' | 'updates'
+
+const CAT_ORDER: ModCategory[] = [
+  'vehicle',
+  'weapon',
+  'ped',
+  'map',
+  'graphics',
+  'audio',
+  'script',
+  'data',
+  'other',
+]
+const catRank = (c: ModCategory | undefined): number => {
+  const i = CAT_ORDER.indexOf(c ?? 'other')
+  return i === -1 ? CAT_ORDER.length : i
+}
 
 /** Small localStorage-backed state so the sort/filter choice sticks. */
 function usePersisted<T extends string>(key: string, initial: T): [T, (v: T) => void] {
@@ -207,6 +223,9 @@ function ModRow({
           ) : (
             <FileBox className="size-3.5 shrink-0 text-ink-faint" />
           )}
+          <span className="shrink-0 rounded border border-line px-1.5 py-px text-[10px] uppercase tracking-wide text-ink-faint">
+            {t(`library.category.${mod.category ?? 'other'}`)}
+          </span>
           {mod.tags.includes('adopted') && <Badge tone="neutral">adopted</Badge>}
           {hasUpdate && (
             <button
@@ -329,6 +348,7 @@ export function LibraryPage(): ReactNode {
     })
     const cmp: Record<SortKey, (a: Mod, b: Mod) => number> = {
       order: (a, b) => a.loadOrder - b.loadOrder || a.name.localeCompare(b.name),
+      category: (a, b) => catRank(a.category) - catRank(b.category) || a.name.localeCompare(b.name),
       name: (a, b) => a.name.localeCompare(b.name),
       recent: (a, b) => (b.addedAt > a.addedAt ? 1 : b.addedAt < a.addedAt ? -1 : 0),
       status: (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || a.name.localeCompare(b.name),
@@ -336,6 +356,17 @@ export function LibraryPage(): ReactNode {
     }
     return [...list].sort(cmp[sort])
   }, [mods, query, filter, sort, updates])
+
+  const groups = useMemo(() => {
+    if (sort !== 'category') return null
+    const by = new Map<ModCategory, Mod[]>()
+    for (const m of visible) {
+      const c = m.category ?? 'other'
+      if (!by.has(c)) by.set(c, [])
+      by.get(c)!.push(m)
+    }
+    return CAT_ORDER.filter((c) => by.has(c)).map((c) => [c, by.get(c)!] as const)
+  }, [visible, sort])
 
   const installedOrder = useMemo(
     () =>
@@ -348,6 +379,22 @@ export function LibraryPage(): ReactNode {
 
   const selCls =
     'no-drag h-8 rounded-md border border-line bg-bg px-2 text-[12px] text-ink-soft outline-none focus:border-brand/50'
+
+  const renderRow = (mod: Mod): ReactNode => {
+    const idx = installedOrder.indexOf(mod.id)
+    return (
+      <ModRow
+        key={mod.id}
+        mod={mod}
+        locked={locked}
+        sortable={sort === 'order' && !query}
+        conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
+        hasUpdate={updates.has(mod.id)}
+        canMoveUp={idx > 0}
+        canMoveDown={idx >= 0 && idx < installedOrder.length - 1}
+      />
+    )
+  }
 
   return (
     <Page
@@ -402,6 +449,7 @@ export function LibraryPage(): ReactNode {
               title={t('library.sortBy')}
             >
               <option value="order">{t('library.sort.order')}</option>
+              <option value="category">{t('library.sort.category')}</option>
               <option value="name">{t('library.sort.name')}</option>
               <option value="recent">{t('library.sort.recent')}</option>
               <option value="status">{t('library.sort.status')}</option>
@@ -435,24 +483,23 @@ export function LibraryPage(): ReactNode {
 
           {visible.length === 0 ? (
             <p className="py-10 text-center text-[13px] text-ink-faint">{t('library.noMatch')}</p>
-          ) : (
-            <div className="space-y-2">
-              {visible.map((mod) => {
-                const idx = installedOrder.indexOf(mod.id)
-                return (
-                  <ModRow
-                    key={mod.id}
-                    mod={mod}
-                    locked={locked}
-                    sortable={sort === 'order' && !query}
-                    conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
-                    hasUpdate={updates.has(mod.id)}
-                    canMoveUp={idx > 0}
-                    canMoveDown={idx >= 0 && idx < installedOrder.length - 1}
-                  />
-                )
-              })}
+          ) : groups ? (
+            <div className="space-y-4">
+              {groups.map(([cat, list]) => (
+                <div key={cat} className="space-y-2">
+                  <div className="flex items-center gap-2 px-1">
+                    <h3 className="text-[12px] font-semibold uppercase tracking-wide text-ink-soft">
+                      {t(`library.category.${cat}`)}
+                    </h3>
+                    <span className="text-[11px] text-ink-faint">{list.length}</span>
+                    <div className="h-px flex-1 bg-line" />
+                  </div>
+                  {list.map((mod) => renderRow(mod))}
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="space-y-2">{visible.map((mod) => renderRow(mod))}</div>
           )}
         </>
       )}

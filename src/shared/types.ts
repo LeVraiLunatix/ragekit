@@ -62,6 +62,18 @@ export interface DependencyStatus {
 
 export type ModStatus = 'installed' | 'disabled' | 'not-installed' | 'error'
 
+/** Rough "what kind of mod is this" bucket, for grouping the library. */
+export type ModCategory =
+  | 'vehicle'
+  | 'weapon'
+  | 'ped'
+  | 'map'
+  | 'graphics'
+  | 'audio'
+  | 'script'
+  | 'data'
+  | 'other'
+
 export interface Mod {
   id: string
   name: string
@@ -79,6 +91,8 @@ export interface Mod {
   /** Load order for scripts / asi. Lower loads first. */
   loadOrder: number
   tags: string[]
+  /** Auto-detected bucket (vehicle, script, graphics…) for grouping. */
+  category?: ModCategory
   /** GTA5-Mods.com page this mod was installed from, when applicable. */
   sourceUrl?: string
   /** "Last updated" timestamp of the mod page at install time. */

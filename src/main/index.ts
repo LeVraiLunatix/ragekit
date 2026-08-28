@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { existsSync, promises as fs } from 'node:fs'
 import { store, libraryDir, backupsDir, migrateDataDir } from './store'
 import { registerIpc } from './ipc'
+import { ensureCategories } from './mods/library'
 import type { LanguageCode } from '@shared/types'
 
 const isDev = !app.isPackaged
@@ -70,6 +71,7 @@ app.whenReady().then(async () => {
   seedLanguageOnFirstRun()
   await migrateDataDir().catch((err) => console.error('data dir migration failed:', err))
   await ensureDirs()
+  await ensureCategories().catch((err) => console.error('category backfill failed:', err))
   registerIpc()
   createWindow()
 
