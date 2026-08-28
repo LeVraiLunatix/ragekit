@@ -1,13 +1,75 @@
-import { join, relative, dirname, sep } from 'node:path'
+import { join, relative, dirname, basename, sep } from 'node:path'
 import type { OivOpResult, OivTarget } from '@shared/types'
 import { parseOivPackage, oivBaseDir, type OivOp } from './oiv'
 import { withOivZip, type OivZip } from './oivZip'
 import { ensureDir, copyFile, pathExists, removeFileAndPrune } from './fsutil'
 import { loadAesKey } from '../rpf/crypto'
 import { loadNgKeys } from '../rpf/ngkeys'
-import { Rpf7, type RpfMutation } from '../rpf/rpf7'
+import { Rpf7, type RpfMutation, type RpfKeys } from '../rpf/rpf7'
 
 const slash = (p: string): string => p.split(sep).join('/')
+const lower = (p: string): string => p.replace(/\\/g, '/').toLowerCase()
+
+/**
+ * Edit inside a nested `.rpf` (or deeper). `chain[0]` is a direct child of
+ * `parent`; the leaf ops are applied at the bottom. NG nested archives are
+ * decrypted to OPEN in memory first. Returns the rebuilt nested archive bytes
+ * plus which leaf ops landed.
+ */
+async function editNested(
+  parent: Rpf7,
+  chain: string[],
+  leaf: { op: OivOp; content: Buffer }[],
+  keys: RpfKeys,
+): Promise<{ buf: Buffer; ok: Set<OivOp>; err: Map<OivOp, string> }> {
+  const ok = new Set<OivOp>()
+  const err = new Map<OivOp, string>()
+  const fail = (msg: string): { buf: Buffer; ok: Set<OivOp>; err: Map<OivOp, string> } => {
+    for (const l of leaf) err.set(l.op, msg)
+    return { buf: Buffer.alloc(0), ok, err }
+  }
+
+  let nested: Rpf7
+  try {
+    nested = await parent.openNested(chain[0])
+  } catch (e) {
+    return fail(`open ${chain[0]}: ${e instanceof Error ? e.message : String(e)}`)
+  }
+  if (nested.encryption === 'NG') {
+    if (!keys.ng) return fail(`${chain[0]} is NG-encrypted and NG keys aren't loaded`)
+    const conv = await nested.convertToOpen()
+    nested = Rpf7.fromBuffer(conv.buf!, keys, `${parent.label}/${chain[0]}`, basename(chain[0]), conv.buf!.length)
+  }
+
+  let muts: RpfMutation[]
+  if (chain.length === 1) {
+    muts = leaf.map((l) => {
+      const inner = nested.get(l.op.target)
+      return {
+        op: (inner ? 'replace' : 'add') as 'replace' | 'add',
+        path: lower(inner?.path ?? l.op.target),
+        content: l.content,
+      }
+    })
+  } else {
+    const sub = await editNested(nested, chain.slice(1), leaf, keys)
+    for (const o of sub.ok) ok.add(o)
+    for (const [o, m] of sub.err) err.set(o, m)
+    if (!sub.buf.length) return { buf: Buffer.alloc(0), ok, err }
+    muts = [{ op: 'replace', path: lower(chain[1]), content: sub.buf }]
+  }
+
+  const r = await nested.rebuildTree(muts)
+  if (chain.length === 1) {
+    const done = new Set([...r.added, ...r.replaced])
+    for (const l of leaf) {
+      const inner = nested.get(l.op.target)
+      if (done.has(lower(inner?.path ?? l.op.target))) ok.add(l.op)
+      else err.set(l.op, 'nested rebuild did not include this file')
+    }
+  }
+  return { buf: r.buf!, ok, err }
+}
 
 export interface OivApplyResult {
   results: OivOpResult[]
@@ -100,7 +162,6 @@ export async function applyOivPackage(
           results.push({ target: op.target, archive, kind, status: 'skipped', detail })
         }
         if (target !== 'mods') { skip('install to the mods folder to apply archive changes'); continue }
-        if (op.archiveChain.length > 1) { skip(`nested archive (${archive}) — not supported yet`); continue }
         if (op.kind === 'delete') { skip(`deletes inside ${archive} — not supported yet`); continue }
         const list = archiveGroups.get(op.archiveChain[0]) ?? []
         list.push(op)
@@ -161,24 +222,60 @@ export async function applyOivPackage(
           rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys })
         }
 
+        const keys: RpfKeys = { aes: aesKey ?? null, ng: ngKeys ?? null }
         const mutations: RpfMutation[] = []
-        const staged: { op: OivOp; path: string; add: boolean }[] = []
-        for (const op of ops) {
+        const staged: { op: OivOp; path: string }[] = []
+        let touchesResource = false
+        let touchesNested = false
+
+        // ── nested-archive ops: rebuild the inner .rpf in memory ─────────────
+        const nestedGroups = new Map<string, OivOp[]>()
+        for (const op of ops.filter((o) => o.archiveChain.length > 1)) {
+          const key = op.archiveChain.slice(1).join(' ')
+          nestedGroups.set(key, [...(nestedGroups.get(key) ?? []), op])
+        }
+        for (const [, nOps] of nestedGroups) {
+          const chain = nOps[0].archiveChain.slice(1)
+          const leaf: { op: OivOp; content: Buffer }[] = []
+          for (const op of nOps) {
+            const buf = op.source ? await extract(zip, op.source) : null
+            if (!buf) { push(op, 'failed', 'source missing in package'); continue }
+            leaf.push({ op, content: buf })
+          }
+          if (leaf.length === 0) continue
+          const res = await editNested(rpf, chain, leaf, keys)
+          for (const op of nOps) {
+            if (res.ok.has(op)) push(op, 'applied')
+            else if (res.err.has(op)) push(op, 'failed', res.err.get(op))
+          }
+          if (res.buf.length) {
+            mutations.push({ op: 'replace', path: lower(chain[0]), content: res.buf })
+            touchesNested = true
+          }
+        }
+
+        // ── direct ops on this archive ──────────────────────────────────────
+        for (const op of ops.filter((o) => o.archiveChain.length === 1)) {
           const inner = rpf.get(op.target)
           if (inner?.isDir) { push(op, 'skipped', `${op.target} is a folder in ${archiveRel}`); continue }
-          if (inner?.isResource) { push(op, 'skipped', `resource replacement in ${archiveRel} not supported yet`); continue }
           const buf = op.source ? await extract(zip, op.source) : null
           if (!buf) { push(op, 'failed', 'source missing in package'); continue }
-          const path = (inner?.path ?? op.target).replace(/\\/g, '/').toLowerCase()
+          const rsc7 = buf.length >= 16 && buf.readUInt32LE(0) === 0x37435352
+          if (inner?.isResource && !rsc7) {
+            push(op, 'skipped', `${op.target} is a resource but the package source isn't an RSC7 file`)
+            continue
+          }
+          if (inner?.isResource || rsc7) touchesResource = true
+          const path = lower(inner?.path ?? op.target)
           mutations.push({ op: inner ? 'replace' : 'add', path, content: buf })
-          staged.push({ op, path, add: !inner })
+          staged.push({ op, path })
         }
         if (mutations.length === 0) continue
 
         await backup(archiveFs)
-        const hasAdds = mutations.some((m) => m.op === 'add')
+        const needsTree = touchesResource || touchesNested || mutations.some((m) => m.op === 'add')
         const done2 = new Set<string>()
-        if (hasAdds) {
+        if (needsTree) {
           const r = await rpf.rebuildTree(mutations, archiveFs)
           for (const p of [...r.added, ...r.replaced]) done2.add(p)
         } else {

@@ -472,14 +472,15 @@ export class Rpf7 {
    * own inner encryption is untouched; the game reads them natively).
    */
   async convertToOpen(
-    destPath: string,
+    destPath?: string,
     onProgress?: (done: number, total: number) => void,
-  ): Promise<{ entries: number }> {
-    if (this.source.kind !== 'file') throw new Error('Only a file-backed archive can be converted.')
+  ): Promise<{ entries: number; buf?: Buffer }> {
     if (this.encryption !== 'NG') throw new Error('convertToOpen expects an NG-encrypted archive.')
     if (!this.keys.ng) throw new Error('NG keys are unavailable — cannot convert.')
+    if (!destPath && this.source.kind === 'file') {
+      throw new Error('convertToOpen needs a destPath for a file-backed archive.')
+    }
     const ng = this.keys.ng
-    const srcPath = this.source.path
 
     interface Slot {
       index: number
@@ -487,10 +488,14 @@ export class Rpf7 {
       newOffset: number
     }
 
-    const srcFd = await fs.open(srcPath, 'r')
+    const srcFd =
+      this.source.kind === 'file' ? await fs.open(this.source.path, 'r') : null
+    const readSrc = (off: number, len: number): Promise<Buffer> =>
+      this.source.kind === 'buffer'
+        ? Promise.resolve(Buffer.from(this.source.data.subarray(off, off + len)))
+        : readInto(srcFd!, off, len)
     try {
-      const origHeader = Buffer.alloc(16)
-      await srcFd.read(origHeader, 0, 16, 0)
+      const origHeader = await readSrc(0, 16)
 
       const newEntries = Buffer.from(this.entriesBuf)
       const slots: Slot[] = []
@@ -513,7 +518,7 @@ export class Rpf7 {
           const uncompressed = w2 >>> 0
           const encType = w3 >>> 0
           const blockLen = fileSize > 0 ? fileSize : uncompressed
-          let block = await readInto(srcFd, offsetSectors * SECTOR, blockLen)
+          let block = await readSrc(offsetSectors * SECTOR, blockLen)
           if (encType !== 0) block = decryptNg(block, name, uncompressed, ng)
           writeBinaryEntry(newEntries, i, {
             nameOffset,
@@ -531,13 +536,13 @@ export class Rpf7 {
         const offsetSectors = (w1 >>> 8) & 0x7fffff
         if (fileSize === 0xffffff) {
           // real size is packed into the first 16 bytes of the block
-          const h = await readInto(srcFd, offsetSectors * SECTOR, 16)
+          const h = await readSrc(offsetSectors * SECTOR, 16)
           fileSize = ((h[7] << 0) | (h[14] << 8) | (h[5] << 16) | (h[2] << 24)) >>> 0
         } else if (fileSize === 0) {
           fileSize = getSizeFromFlags(w2) + getSizeFromFlags(w3) // CodeWalker GetFileSize()
         }
         if (fileSize <= 16) throw new Error(`${name}: implausible resource size ${fileSize}`)
-        const block = await readInto(srcFd, offsetSectors * SECTOR, fileSize)
+        const block = await readSrc(offsetSectors * SECTOR, fileSize)
         const header16 = block.subarray(0, 16)
         const payload = block.subarray(16, fileSize)
         const decPayload = decryptNg(payload, name, fileSize, ng)
@@ -574,45 +579,64 @@ export class Rpf7 {
       newEntries.copy(toc, 16)
       this.namesBuf.copy(toc, 16 + newEntries.length)
 
-      const tmp = `${destPath}.rktmp`
-      const outFd = await fs.open(tmp, 'w')
-      try {
-        await outFd.write(toc, 0, toc.length, 0)
-        for (const s of slots) {
-          const padded = Buffer.alloc(alignUp(s.newBlock.length, SECTOR))
-          s.newBlock.copy(padded)
-          await outFd.write(padded, 0, padded.length, s.newOffset)
+      if (destPath) {
+        const tmp = `${destPath}.rktmp`
+        const outFd = await fs.open(tmp, 'w')
+        try {
+          await outFd.write(toc, 0, toc.length, 0)
+          for (const s of slots) {
+            const padded = Buffer.alloc(alignUp(s.newBlock.length, SECTOR))
+            s.newBlock.copy(padded)
+            await outFd.write(padded, 0, padded.length, s.newOffset)
+          }
+        } finally {
+          await outFd.close()
         }
-      } finally {
-        await outFd.close()
+        await fs.rm(destPath, { force: true })
+        await fs.rename(tmp, destPath)
+        return { entries: slots.length }
       }
-      await fs.rm(destPath, { force: true })
-      await fs.rename(tmp, destPath)
-      return { entries: slots.length }
+
+      const last = slots[slots.length - 1]
+      const totalLen = last ? last.newOffset + alignUp(last.newBlock.length, SECTOR) : toc.length
+      const buf = Buffer.alloc(totalLen)
+      toc.copy(buf, 0)
+      for (const s of slots) s.newBlock.copy(buf, s.newOffset)
+      return { entries: slots.length, buf }
     } finally {
-      await srcFd.close()
+      if (srcFd) await srcFd.close()
     }
   }
 
   /**
-   * Rebuild the archive to `destPath` applying add / replace / delete mutations
-   * on the directory tree. The entry table and name table are regenerated in
-   * CodeWalker's canonical order (stack DFS, children sorted `String.CompareOrdinal`,
-   * names deduped and padded to 16). New files are always stored as binary
-   * entries. OPEN or AES archives only — an NG archive must be converted first.
+   * Rebuild the archive applying add / replace / delete mutations on the tree.
+   * The entry and name tables are regenerated in CodeWalker's canonical order
+   * (stack DFS, children sorted `String.CompareOrdinal`, names deduped and padded
+   * to 16). New files with an `RSC7` header become resource entries, everything
+   * else binary (`.rpf`/`.awc` stored raw). OPEN or AES only — convert NG first.
+   *
+   * With `destPath` it writes a file (temp + rename). Without, it returns the
+   * rebuilt archive as `buf` — used for editing a nested `.rpf` in memory.
    */
   async rebuildTree(
     mutations: RpfMutation[],
-    destPath: string,
-  ): Promise<{ added: string[]; replaced: string[]; deleted: string[]; missing: string[] }> {
-    if (this.source.kind !== 'file') throw new Error('Only a file-backed archive can be rebuilt.')
+    destPath?: string,
+  ): Promise<{
+    added: string[]
+    replaced: string[]
+    deleted: string[]
+    missing: string[]
+    buf?: Buffer
+  }> {
+    if (!destPath && this.source.kind === 'file') {
+      throw new Error('rebuildTree needs a destPath for a file-backed archive.')
+    }
     if (this.encryption === 'NG') {
       throw new Error('NG-encrypted archives must be converted to OPEN before editing.')
     }
     if (this.encryption === 'AES' && !this.keys.aes) {
       throw new Error('Editing this archive needs the AES key from GTA5.exe.')
     }
-    const srcPath = this.source.path
 
     // ── 1. parse the raw entry table into a mutable tree ──────────────────────
     const raw: RawEnt[] = []
@@ -651,7 +675,10 @@ export class Rpf7 {
       .filter((e) => e.kind !== 'dir')
       .map((e) => (e as RawFile).offsetSectors * SECTOR)
       .sort((a, b) => a - b)
-    const origSize = (await fs.stat(srcPath)).size
+    const origSize =
+      this.source.kind === 'buffer'
+        ? this.source.data.length
+        : (await fs.stat(this.source.path)).size
     const spanEnd = (off: number): number => {
       for (const fo of origFileOffsets) if (fo > off) return fo
       return origSize
@@ -705,27 +732,35 @@ export class Rpf7 {
         } else missing.push(m.path)
         continue
       }
-      // add / replace
-      if (existing && existing.kind === 'binary') {
-        existing.newContent = m.content
-        replaced.push(m.path)
-      } else if (existing && existing.kind === 'resource') {
-        missing.push(m.path) // resource replacement not supported here yet
-      } else if (!existing && m.op === 'add') {
-        dir.children.push({
-          kind: 'binary',
-          name: fname,
-          offsetSectors: 0,
-          fileSize24: 0,
-          uncompressed: 0,
-          encType: 0,
-          isNew: true,
-          newContent: m.content,
-        })
-        added.push(m.path)
-      } else {
+      // add / replace — the new content's header decides binary vs resource
+      // (CodeWalker CreateFile deletes any existing entry and re-adds by type).
+      if (!m.content) {
         missing.push(m.path)
+        continue
       }
+      if (m.op === 'replace' && !existing) {
+        missing.push(m.path)
+        continue
+      }
+      if (existing && existing.kind === 'dir') {
+        missing.push(m.path)
+        continue
+      }
+      if (existing) dir.children = dir.children.filter((c) => c !== existing)
+      const node: RawEnt = isRsc7(m.content)
+        ? makeResourceNode(fname, m.content)
+        : {
+            kind: 'binary',
+            name: fname,
+            offsetSectors: 0,
+            fileSize24: 0,
+            uncompressed: 0,
+            encType: 0,
+            isNew: true,
+            newContent: m.content,
+          }
+      dir.children.push(node)
+      ;(existing ? replaced : added).push(m.path)
     }
 
     // ── 3. regenerate entry list in CodeWalker canonical order ───────────────
@@ -790,8 +825,11 @@ export class Rpf7 {
 
       if (e.kind === 'binary' && e.newContent) {
         const content = e.newContent
-        const comp = deflateRawSync(content, { level: 9 })
-        const useC = comp.length < content.length
+        const rawStore =
+          /\.(rpf|awc)$/i.test(e.name) ||
+          (content.length >= 4 && content.readUInt32LE(0) === RPF7_MAGIC)
+        const comp = rawStore ? content : deflateRawSync(content, { level: 9 })
+        const useC = !rawStore && comp.length < content.length
         payload = useC ? comp : content
         fileSize24 = useC ? comp.length : 0
         uncompressed = content.length
@@ -800,8 +838,13 @@ export class Rpf7 {
         uncompressed = e.uncompressed
         origLen = e.fileSize24 > 0 ? e.fileSize24 : e.uncompressed
         fromOrigOffset = e.offsetSectors * SECTOR
+      } else if (e.newContent) {
+        // new / replaced resource — the RSC7 file is stored verbatim
+        payload = e.newContent
+        fileSize24 = Math.min(e.newContent.length, 0xffffff)
+        uncompressed = 0
       } else {
-        // resource — verbatim, span-bounded
+        // untouched resource — verbatim, span-bounded
         fileSize24 = e.fileSize24
         uncompressed = 0
         origLen = spanEnd(e.offsetSectors * SECTOR) - e.offsetSectors * SECTOR
@@ -854,24 +897,49 @@ export class Rpf7 {
     outEntries.copy(toc, 16)
     outNames.copy(toc, 16 + outEntries.length)
 
-    const srcFd = await fs.open(srcPath, 'r')
-    const tmp = `${destPath}.rktmp`
-    const outFd = await fs.open(tmp, 'w')
-    try {
-      await outFd.write(toc, 0, toc.length, 0)
-      for (const b of blocks) {
-        const data = b.payload ?? (await readInto(srcFd, b.fromOrigOffset!, b.origLen!))
-        const padded = Buffer.alloc(alignUp(data.length, SECTOR))
-        data.copy(padded)
-        await outFd.write(padded, 0, padded.length, b.at)
+    const srcFd =
+      this.source.kind === 'file' ? await fs.open(this.source.path, 'r') : null
+    const materialize = async (b: (typeof blocks)[number]): Promise<Buffer> => {
+      if (b.payload) return b.payload
+      if (this.source.kind === 'buffer') {
+        return this.source.data.subarray(b.fromOrigOffset!, b.fromOrigOffset! + b.origLen!)
       }
-    } finally {
-      await outFd.close()
-      await srcFd.close()
+      return readInto(srcFd!, b.fromOrigOffset!, b.origLen!)
     }
-    await fs.rm(destPath, { force: true })
-    await fs.rename(tmp, destPath)
-    return { added, replaced, deleted, missing }
+    try {
+      if (destPath) {
+        const tmp = `${destPath}.rktmp`
+        const outFd = await fs.open(tmp, 'w')
+        try {
+          await outFd.write(toc, 0, toc.length, 0)
+          for (const b of blocks) {
+            const data = await materialize(b)
+            const padded = Buffer.alloc(alignUp(data.length, SECTOR))
+            data.copy(padded)
+            await outFd.write(padded, 0, padded.length, b.at)
+          }
+        } finally {
+          await outFd.close()
+        }
+        await fs.rm(destPath, { force: true })
+        await fs.rename(tmp, destPath)
+        return { added, replaced, deleted, missing }
+      }
+
+      const last = blocks[blocks.length - 1]
+      const totalLen = last
+        ? last.at + alignUp((last.payload?.length ?? last.origLen ?? 0), SECTOR)
+        : toc.length
+      const out = Buffer.alloc(totalLen)
+      toc.copy(out, 0)
+      for (const b of blocks) {
+        const data = await materialize(b)
+        data.copy(out, b.at)
+      }
+      return { added, replaced, deleted, missing, buf: out }
+    } finally {
+      if (srcFd) await srcFd.close()
+    }
   }
 }
 
@@ -912,9 +980,43 @@ interface RawResource {
   fileSize24: number
   sysFlags: number
   gfxFlags: number
+  isNew?: boolean
+  /** full RSC7 file (header + payload) for a new / replaced resource */
+  newContent?: Buffer
 }
 type RawFile = RawBinary | RawResource
 type RawEnt = RawDir | RawFile
+
+const RSC7_MAGIC = 0x37435352
+
+function isRsc7(buf: Buffer | undefined): boolean {
+  return !!buf && buf.length >= 16 && buf.readUInt32LE(0) === RSC7_MAGIC
+}
+
+/** Build a resource node from a standalone RSC7 file (CodeWalker CreateFile). */
+function makeResourceNode(name: string, rsc7: Buffer): RawResource {
+  const data = Buffer.from(rsc7) // copy — we may patch the size bytes
+  const len = data.length
+  const sysFlags = data.readUInt32LE(8)
+  const gfxFlags = data.readUInt32LE(12)
+  if (len >= 0xffffff) {
+    // CodeWalker packs the real size into these 4 header bytes.
+    data[7] = (len >>> 0) & 0xff
+    data[14] = (len >>> 8) & 0xff
+    data[5] = (len >>> 16) & 0xff
+    data[2] = (len >>> 24) & 0xff
+  }
+  return {
+    kind: 'resource',
+    name,
+    offsetSectors: 0,
+    fileSize24: Math.min(len, 0xffffff),
+    sysFlags,
+    gfxFlags,
+    isNew: true,
+    newContent: data,
+  }
+}
 
 async function readInto(fd: fs.FileHandle, offset: number, len: number): Promise<Buffer> {
   const out = Buffer.alloc(len)

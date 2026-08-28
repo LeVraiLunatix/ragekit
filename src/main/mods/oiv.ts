@@ -269,11 +269,8 @@ function classifyOp(op: OivOp): OivContentOp {
   if (op.kind === 'delete') {
     return { ...base, kind: 'delete', reason: `deletes inside ${archive} — not supported yet` }
   }
-  if (op.archiveChain.length > 1) {
-    return { ...base, kind: 'replace', reason: `nested archive (${archive}) — not supported yet` }
-  }
-  // Single-level archive, same-name replacement: applied to the mods folder by
-  // rebuilding the archive (NG vanilla archives are decrypted to OPEN first).
+  // Applied by rebuilding the archive in the mods folder (NG vanilla archives
+  // are decrypted to OPEN first; nested archives are rebuilt in memory).
   return { ...base, kind: 'replace', supported: true }
 }
 
