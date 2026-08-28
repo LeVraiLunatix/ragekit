@@ -285,6 +285,183 @@ export class Rpf7 {
       await fd.close()
     }
   }
+
+  /**
+   * Rebuild the whole archive to `destPath` with a set of same-name file
+   * replacements. Unlike {@link replaceFile} (which appends), this repacks every
+   * block contiguously and rewrites the TOC — the directory tree, the name table
+   * and every entry index are preserved byte-for-byte; only file blocks and their
+   * offset/size fields change. Untouched blocks (including resources) are copied
+   * verbatim. OPEN and AES archives only — NG must be converted first.
+   *
+   * Writes to a temp file then renames over `destPath`, so a failure leaves the
+   * original intact.
+   */
+  async rebuild(
+    replace: Map<string, Buffer>,
+    destPath: string,
+  ): Promise<{ replaced: string[]; missing: string[] }> {
+    if (this.source.kind !== 'file') {
+      throw new Error('Only a file-backed archive can be rebuilt.')
+    }
+    if (this.encryption === 'NG') {
+      throw new Error('NG-encrypted archives must be converted to OPEN before editing.')
+    }
+    if (this.encryption === 'AES' && !this.keys.aes) {
+      throw new Error('Editing this archive needs the AES key from GTA5.exe.')
+    }
+    const srcPath = this.source.path
+
+    // Normalise wanted paths; split into ones we can actually replace vs not.
+    const wanted = new Map<string, Buffer>()
+    for (const [k, v] of replace) wanted.set(k.replace(/\\/g, '/').toLowerCase(), v)
+    const byIndex = new Map<number, RpfEntry>()
+    for (const e of this.entries) byIndex.set(e.index, e)
+    const replaced: string[] = []
+    const missing: string[] = []
+    for (const k of wanted.keys()) {
+      const hit = this.byPath.get(k)
+      if (hit && !hit.isDir && !hit.isResource) replaced.push(k)
+      else missing.push(k)
+    }
+
+    interface Slot {
+      index: number
+      isResource: boolean
+      origOffset: number
+      origLen: number
+      newContent?: { payload: Buffer; sizeOnDisk: number; uncompressed: number }
+      newOffset: number
+    }
+
+    const srcFd = await fs.open(srcPath, 'r')
+    try {
+      const origSize = (await srcFd.stat()).size
+      const origHeader = Buffer.alloc(16)
+      await srcFd.read(origHeader, 0, 16, 0)
+      const encU32 = origHeader.readUInt32LE(12)
+
+      // Collect every file entry in index order, plus a sorted offset list so we
+      // can bound a resource block by the next block's start.
+      const slots: Slot[] = []
+      const fileOffsets: number[] = []
+      for (let i = 0; i < this.entryCount; i++) {
+        const o = i * 16
+        const w0 = this.entriesBuf.readUInt32LE(o)
+        const w1 = this.entriesBuf.readUInt32LE(o + 4)
+        if (w1 === DIR_IDENT) continue
+        const isResource = (w1 & 0x80000000) !== 0
+        const offsetSectors = isResource ? (w1 >>> 8) & 0x7fffff : (w1 >>> 8) & 0xffffff
+        const origOffset = offsetSectors * SECTOR
+        const sizeField = ((w0 >>> 16) | ((w1 & 0xff) << 16)) & 0xffffff
+        const uncompressed = this.entriesBuf.readUInt32LE(o + 8) >>> 0
+        // Binary length is exact; resources fall back to span-to-next-block.
+        const origLen = isResource ? -1 : sizeField > 0 ? sizeField : uncompressed
+        slots.push({ index: i, isResource, origOffset, origLen, newOffset: 0 })
+        fileOffsets.push(origOffset)
+      }
+      fileOffsets.sort((a, b) => a - b)
+      const spanEnd = (off: number): number => {
+        for (const fo of fileOffsets) if (fo > off) return fo
+        return origSize
+      }
+      for (const s of slots) if (s.origLen < 0) s.origLen = spanEnd(s.origOffset) - s.origOffset
+
+      // Compress the replacement payloads.
+      for (const s of slots) {
+        const entry = byIndex.get(s.index)
+        const content = entry ? wanted.get(entry.path) : undefined
+        if (!content) continue
+        const compressed = deflateRawSync(content, { level: 9 })
+        const useC = compressed.length < content.length
+        s.newContent = {
+          payload: useC ? compressed : content,
+          sizeOnDisk: useC ? compressed.length : 0,
+          uncompressed: content.length,
+        }
+      }
+
+      // Lay out: header + entries + names, padded to a sector, then each block.
+      const newEntries = Buffer.from(this.entriesBuf)
+      const tocEnd = 16 + this.entryCount * 16 + this.namesLength
+      let cursor = alignUp(tocEnd, SECTOR)
+      for (const s of slots) {
+        s.newOffset = cursor
+        const len = s.newContent ? s.newContent.payload.length : s.origLen
+        cursor += alignUp(len, SECTOR)
+
+        const o = s.index * 16
+        if (s.newContent) {
+          writeBinaryEntry(newEntries, s.index, {
+            nameOffset: readNameOffset(newEntries, s.index),
+            sizeOnDisk: s.newContent.sizeOnDisk,
+            offsetSectors: s.newOffset / SECTOR,
+            uncompressedSize: s.newContent.uncompressed,
+            encrypted: false,
+          })
+        } else if (s.isResource) {
+          // keep resource flag (bit 31) + size-high byte, rewrite offset bits.
+          const w1 = newEntries.readUInt32LE(o + 4)
+          newEntries.writeUInt32LE(
+            ((w1 & 0x800000ff) | (((s.newOffset / SECTOR) & 0x7fffff) << 8)) >>> 0,
+            o + 4,
+          )
+        } else {
+          const w1 = newEntries.readUInt32LE(o + 4)
+          newEntries.writeUInt32LE(
+            ((w1 & 0xff) | (((s.newOffset / SECTOR) & 0xffffff) << 8)) >>> 0,
+            o + 4,
+          )
+        }
+      }
+
+      // Encrypt the TOC halves separately for AES; plaintext for OPEN.
+      let outEntries: Buffer = newEntries
+      let outNames: Buffer = this.namesBuf
+      if (this.encryption === 'AES') {
+        outEntries = aesEncrypt(newEntries, this.keys.aes!)
+        outNames = aesEncrypt(this.namesBuf, this.keys.aes!)
+        const back = aesDecrypt(outEntries, this.keys.aes!)
+        if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(newEntries)) {
+          throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
+        }
+      }
+
+      const firstOffset = alignUp(16 + outEntries.length + outNames.length, SECTOR)
+      const toc = Buffer.alloc(firstOffset)
+      origHeader.copy(toc, 0)
+      toc.writeUInt32LE(encU32, 12) // keep original encryption marker
+      outEntries.copy(toc, 16)
+      outNames.copy(toc, 16 + outEntries.length)
+
+      const tmp = `${destPath}.rktmp`
+      const outFd = await fs.open(tmp, 'w')
+      try {
+        await outFd.write(toc, 0, toc.length, 0)
+        for (const s of slots) {
+          const block = s.newContent
+            ? s.newContent.payload
+            : await readInto(srcFd, s.origOffset, s.origLen)
+          const padded = Buffer.alloc(alignUp(block.length, SECTOR))
+          block.copy(padded)
+          await outFd.write(padded, 0, padded.length, s.newOffset)
+        }
+      } finally {
+        await outFd.close()
+      }
+      await fs.rm(destPath, { force: true })
+      await fs.rename(tmp, destPath)
+      return { replaced, missing }
+    } finally {
+      await srcFd.close()
+    }
+  }
+}
+
+async function readInto(fd: fs.FileHandle, offset: number, len: number): Promise<Buffer> {
+  const out = Buffer.alloc(len)
+  if (len > 0) await fd.read(out, 0, len, offset)
+  return out
 }
 
 function readNameOffset(entries: Buffer, index: number): number {

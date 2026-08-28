@@ -307,7 +307,7 @@ export const en = {
     supportedCount: '{supported} of {total} operations apply here',
     allSupported: 'All {total} operations apply here',
     skippedHint:
-      'Greyed operations write inside .rpf archives Ragekit can’t edit yet — finish those in OpenIV.',
+      'Greyed operations write inside NG-encrypted vanilla archives (update.rpf, x64*.rpf) that Ragekit can’t rebuild yet — finish those in OpenIV.',
     needGameFolder: 'Set your GTA V folder in Settings first.',
     install: 'Install',
     installing: 'Installing…',

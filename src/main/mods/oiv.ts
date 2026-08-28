@@ -268,19 +268,19 @@ function classifyOp(op: OivOp): OivContentOp {
     // Loose file — fully supported. `add` maps to add/replace at apply time.
     return { ...base, kind: op.kind === 'add' ? 'add' : 'delete', supported: true }
   }
-  // Archive op. Only same-name replacement into an editable (non-NG) archive works.
-  if (NG_ARCHIVE.test(archive) || op.archiveChain.length > 1) {
-    return {
-      ...base,
-      kind: op.kind === 'add' ? 'replace' : 'delete',
-      reason: `writes inside ${archive} — apply with OpenIV`,
-    }
+  // Op inside a .rpf archive.
+  if (op.kind === 'delete') {
+    return { ...base, kind: 'delete', reason: `deletes inside ${archive} — not supported yet` }
   }
-  return {
-    ...base,
-    kind: op.kind === 'add' ? 'replace' : 'delete',
-    reason: `writes inside ${archive} — needs the archive in your mods folder`,
+  if (op.archiveChain.length > 1) {
+    return { ...base, kind: 'replace', reason: `nested archive (${archive}) — not supported yet` }
   }
+  if (NG_ARCHIVE.test(op.archiveChain[0])) {
+    return { ...base, kind: 'replace', reason: `${op.archiveChain[0]} is NG-encrypted — not supported yet` }
+  }
+  // Single-level, non-NG archive: same-name replacement is applied by rebuilding
+  // the archive (only when installed to the mods folder, archive already there).
+  return { ...base, kind: 'replace', supported: true }
 }
 
 export async function inspectOiv(oivPath: string, gamePath: string | null): Promise<OivInspection> {

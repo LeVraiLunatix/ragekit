@@ -309,7 +309,7 @@ export const de: Dict = {
     supportedCount: '{supported} von {total} Operationen sind hier anwendbar',
     allSupported: 'Alle {total} Operationen sind hier anwendbar',
     skippedHint:
-      'Ausgegraute Operationen schreiben in .rpf-Archive, die Ragekit noch nicht bearbeiten kann — erledige diese in OpenIV.',
+      'Ausgegraute Operationen schreiben in NG-verschlüsselte Vanilla-Archive (update.rpf, x64*.rpf), die Ragekit noch nicht neu aufbauen kann — erledige diese in OpenIV.',
     needGameFolder: 'Lege zuerst deinen GTA-V-Ordner in den Einstellungen fest.',
     install: 'Installieren',
     installing: 'Installiere…',

@@ -313,7 +313,7 @@ export const fr: Dict = {
     supportedCount: '{supported} opérations sur {total} applicables ici',
     allSupported: 'Les {total} opérations sont applicables ici',
     skippedHint:
-      'Les opérations grisées écrivent dans des archives .rpf que Ragekit ne sait pas encore modifier — termine-les avec OpenIV.',
+      'Les opérations grisées écrivent dans des archives vanilla chiffrées NG (update.rpf, x64*.rpf) que Ragekit ne sait pas encore reconstruire — termine-les avec OpenIV.',
     needGameFolder: 'Définis d’abord ton dossier GTA V dans les Paramètres.',
     install: 'Installer',
     installing: 'Installation…',
