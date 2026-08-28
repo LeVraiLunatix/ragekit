@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ragekit — GTA V mod manager for single-player</title>
+    <meta
+      name="description"
+      content="A modern mod manager and RPF toolkit for Grand Theft Auto V single-player. Import mods, toggle them on and off, browse .rpf archives OpenIV-style, and get a clean uninstall every time."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://ragekit.vercel.app/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ragekit — GTA V mod manager" />
+    <meta
+      property="og:description"
+      content="Import mods once, toggle them on and off, browse the game's .rpf archives OpenIV-style, and get a clean uninstall every time. Windows, free, MIT."
+    />
+    <meta property="og:url" content="https://ragekit.vercel.app/" />
+    <meta property="og:image" content="https://ragekit.vercel.app/icon.png" />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg: #0a0b0e;
+        --bg-raised: #0e1013;
+        --card: #131519;
+        --card-hover: #191c22;
+        --line: #23262e;
+        --line-soft: #191b21;
+        --ink: #eef1f6;
+        --ink-soft: #a7adba;
+        --ink-faint: #6a7180;
+        --brand: #f5a524;
+        --brand-hi: #ffbd52;
+        --good: #3ddc84;
+        --warn: #f5b544;
+        --radius: 14px;
+        --maxw: 1080px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Inter", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+        font-feature-settings: "cv05", "cv08", "ss03";
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.55;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      h1,
+      h2,
+      h3 {
+        letter-spacing: -0.02em;
+        line-height: 1.12;
+      }
+
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* ---------- background glow ---------- */
+      .bg-glow {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(
+            600px 380px at 50% -6%,
+            rgba(245, 165, 36, 0.16),
+            transparent 70%
+          ),
+          radial-gradient(
+            900px 600px at 88% 6%,
+            rgba(245, 165, 36, 0.06),
+            transparent 60%
+          );
+      }
+
+      /* ---------- nav ---------- */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        backdrop-filter: blur(12px);
+        background: rgba(10, 11, 14, 0.72);
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      nav .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 62px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .brand svg {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        font-size: 14px;
+        color: var(--ink-soft);
+      }
+
+      .nav-links a:hover {
+        color: var(--ink);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        font-size: 15px;
+        padding: 12px 20px;
+        border-radius: 11px;
+        border: 1px solid transparent;
+        transition:
+          transform 0.15s cubic-bezier(0.32, 0.72, 0, 1),
+          background 0.15s ease,
+          border-color 0.15s ease;
+        white-space: nowrap;
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn-primary {
+        background: linear-gradient(180deg, var(--brand-hi), var(--brand));
+        color: #1a1205;
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.25) inset,
+          0 10px 30px -10px rgba(245, 165, 36, 0.6);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn-ghost {
+        background: var(--card);
+        border-color: var(--line);
+        color: var(--ink);
+      }
+
+      .btn-ghost:hover {
+        background: var(--card-hover);
+        border-color: #303542;
+      }
+
+      .btn-sm {
+        padding: 9px 15px;
+        font-size: 14px;
+      }
+
+      /* ---------- hero ---------- */
+      header {
+        padding: 96px 0 72px;
+        text-align: center;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink-soft);
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 6px 14px;
+        border-radius: 999px;
+        margin-bottom: 28px;
+      }
+
+      .pill .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--good);
+        box-shadow: 0 0 10px var(--good);
+      }
+
+      .hero-logo {
+        width: 88px;
+        height: 88px;
+        margin: 0 auto 24px;
+        display: block;
+        border-radius: 22px;
+        filter: drop-shadow(0 18px 40px rgba(245, 165, 36, 0.28));
+      }
+
+      header h1 {
+        font-size: clamp(2.6rem, 6vw, 4rem);
+        font-weight: 800;
+      }
+
+      header p.lead {
+        max-width: 620px;
+        margin: 20px auto 0;
+        font-size: clamp(1.05rem, 2.4vw, 1.28rem);
+        color: var(--ink-soft);
+      }
+
+      .cta-row {
+        display: flex;
+        gap: 14px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 38px;
+      }
+
+      .sub-note {
+        margin-top: 18px;
+        font-size: 13px;
+        color: var(--ink-faint);
+      }
+
+      /* ---------- warning banner ---------- */
+      .warning {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        max-width: 760px;
+        margin: 8px auto 0;
+        padding: 16px 18px;
+        border-radius: var(--radius);
+        background: rgba(245, 181, 68, 0.08);
+        border: 1px solid rgba(245, 181, 68, 0.25);
+        text-align: left;
+        font-size: 14px;
+        color: #f0d9ac;
+      }
+
+      .warning svg {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        margin-top: 1px;
+        color: var(--warn);
+      }
+
+      .warning b {
+        color: #fbe9c6;
+      }
+
+      /* ---------- sections ---------- */
+      section {
+        padding: 72px 0;
+      }
+
+      .section-head {
+        text-align: center;
+        max-width: 640px;
+        margin: 0 auto 48px;
+      }
+
+      .section-head h2 {
+        font-size: clamp(1.8rem, 4vw, 2.4rem);
+        font-weight: 700;
+      }
+
+      .section-head p {
+        margin-top: 14px;
+        color: var(--ink-soft);
+        font-size: 1.05rem;
+      }
+
+      .eyebrow {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--brand);
+        margin-bottom: 12px;
+      }
+
+      /* ---------- feature grid ---------- */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 24px;
+        transition:
+          border-color 0.18s ease,
+          background 0.18s ease,
+          transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+      }
+
+      .card:hover {
+        border-color: #313745;
+        background: var(--card-hover);
+        transform: translateY(-3px);
+      }
+
+      .card .ico {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(245, 165, 36, 0.12);
+        color: var(--brand-hi);
+        margin-bottom: 16px;
+      }
+
+      .card .ico svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .card h3 {
+        font-size: 1.05rem;
+        font-weight: 650;
+        margin-bottom: 7px;
+      }
+
+      .card p {
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+        line-height: 1.5;
+      }
+
+      /* ---------- trust ---------- */
+      .trust {
+        background: var(--bg-raised);
+        border-top: 1px solid var(--line-soft);
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .trust-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 32px;
+        margin-top: 12px;
+      }
+
+      .trust-item h3 {
+        font-size: 1rem;
+        font-weight: 650;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .trust-item h3 svg {
+        width: 17px;
+        height: 17px;
+        color: var(--good);
+      }
+
+      .trust-item p {
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+      }
+
+      /* ---------- download strip ---------- */
+      .download-cta {
+        text-align: center;
+        background:
+          radial-gradient(
+            500px 260px at 50% 0%,
+            rgba(245, 165, 36, 0.12),
+            transparent 70%
+          );
+      }
+
+      .download-cta h2 {
+        font-size: clamp(1.9rem, 4.5vw, 2.6rem);
+        font-weight: 750;
+      }
+
+      .download-cta p {
+        color: var(--ink-soft);
+        margin: 14px auto 32px;
+        max-width: 460px;
+      }
+
+      /* ---------- footer ---------- */
+      footer {
+        border-top: 1px solid var(--line-soft);
+        padding: 40px 0;
+        font-size: 13px;
+        color: var(--ink-faint);
+      }
+
+      footer .wrap {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      footer a:hover {
+        color: var(--ink-soft);
+      }
+
+      footer .foot-links {
+        display: flex;
+        gap: 20px;
+      }
+
+      .disclaimer {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 24px 40px;
+        font-size: 12px;
+        color: var(--ink-faint);
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 860px) {
+        .grid,
+        .trust-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .nav-links a:not(.btn) {
+          display: none;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .grid,
+        .trust-grid {
+          grid-template-columns: 1fr;
+        }
+        header {
+          padding: 64px 0 52px;
+        }
+        section {
+          padding: 56px 0;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-glow"></div>
+
+    <!-- ================= NAV ================= -->
+    <nav>
+      <div class="wrap">
+        <a class="brand" href="/">
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="n-g" x1="14" y1="10" x2="50" y2="56" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#ffc571" />
+                <stop offset="1" stop-color="#ee972b" />
+              </linearGradient>
+              <radialGradient id="n-h" cx="24" cy="18" r="46" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#2a2f3b" />
+                <stop offset="1" stop-color="#0e1117" />
+              </radialGradient>
+            </defs>
+            <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#n-h)" />
+            <g fill="url(#n-g)">
+              <path fill-rule="evenodd" d="M18 14 h10 v36 h-10 Z M27 14 h8.5 a13.25 13.25 0 0 1 0 26.5 h-8.5 v-8.5 h8.5 a4.75 4.75 0 0 0 0 -9.5 h-8.5 Z" />
+              <path d="M28.5 33 L48 50 H37.2 L24 36.5 Z" />
+            </g>
+          </svg>
+          Ragekit
+        </a>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#trust">How it works</a>
+          <a href="https://github.com/LeVraiLunatix/ragekit" target="_blank" rel="noopener">GitHub</a>
+          <a class="btn btn-primary btn-sm" href="https://github.com/LeVraiLunatix/ragekit/releases/latest" target="_blank" rel="noopener">Download</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ================= HERO ================= -->
+    <header>
+      <div class="wrap">
+        <span class="pill"><span class="dot"></span> Windows 10 / 11 · Free · Open source</span>
+
+        <svg class="hero-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="Ragekit logo">
+          <defs>
+            <linearGradient id="h-g" x1="14" y1="10" x2="50" y2="56" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ffc571" />
+              <stop offset="1" stop-color="#ee972b" />
+            </linearGradient>
+            <radialGradient id="h-h" cx="24" cy="18" r="46" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#2a2f3b" />
+              <stop offset="1" stop-color="#0e1117" />
+            </radialGradient>
+          </defs>
+          <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#h-h)" />
+          <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="15.25" fill="none" stroke="#f2a341" stroke-opacity="0.30" stroke-width="1.5" />
+          <g fill="url(#h-g)">
+            <path fill-rule="evenodd" d="M18 14 h10 v36 h-10 Z M27 14 h8.5 a13.25 13.25 0 0 1 0 26.5 h-8.5 v-8.5 h8.5 a4.75 4.75 0 0 0 0 -9.5 h-8.5 Z" />
+            <path d="M28.5 33 L48 50 H37.2 L24 36.5 Z" />
+          </g>
+        </svg>
+
+        <h1>Mod GTA&nbsp;V without<br />the mess.</h1>
+        <p class="lead">
+          A modern mod manager &amp; RPF toolkit for <b>Grand Theft Auto&nbsp;V
+          single-player</b>. Import mods once, toggle them on and off, and get a
+          clean uninstall every time.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/LeVraiLunatix/ragekit/releases/latest" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download for Windows
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/LeVraiLunatix/ragekit" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.57.1.78-.25.78-.55v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.4-5.25 5.69.41.35.78 1.05.78 2.12v3.14c0 .3.2.66.79.55A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg>
+            View source
+          </a>
+        </div>
+        <p class="sub-note">No account. No telemetry. Installer is not code-signed yet — SmartScreen may warn on first run.</p>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="warning">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>
+          <b>Story Mode only.</b> Never launch GTA&nbsp;Online with Script Hook&nbsp;V
+          or modified game files present — it can get your Rockstar account banned.
+          Ragekit's <b>Online-safe mode</b> moves every mod loader out of the game
+          folder in one click, so the game boots 100% vanilla.
+        </span>
+      </div>
+    </div>
+
+    <!-- ================= FEATURES ================= -->
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">What it does</span>
+          <h2>Everything a mod manager should do</h2>
+          <p>Import, toggle, reorder, diagnose, and roll back — without ever leaving a mess in your game folder.</p>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+            <h3>Import anything</h3>
+            <p>Drop a <code>.zip</code>, <code>.rar</code>, <code>.oiv</code> or a loose folder. Files are classified and routed automatically — ASI to root, scripts, loader DLLs, <code>mods/</code> trees.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg></div>
+            <h3>Toggle on and off</h3>
+            <p>Mods live in an internal library. Replaced game files are backed up, and disabling or removing a mod restores the originals exactly.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+            <h3>Online-safe mode</h3>
+            <p>One toggle parks every loader — <code>dinput8</code>, <code>ScriptHookV.dll</code>, root <code>.asi</code>, the <code>mods/</code> folder — leaving the game byte-identical to vanilla.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+            <h3>Profiles</h3>
+            <p>Named mod loadouts you switch between in one click. A "racing" set, a "screenshots" set — whatever you build.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+            <h3>Load order &amp; conflicts</h3>
+            <p>Reorder <code>.asi</code> and script files, and get flagged when two mods write to the same file — the one that loads last wins.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <h3>Dependency check</h3>
+            <p>Detects Script Hook V, Script Hook V .NET and OpenIV.asi in your install, and links the official downloads for the missing ones.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+            <h3>Diagnostics</h3>
+            <p>Parses <code>ScriptHookV.log</code>, <code>asiloader.log</code>, <code>ScriptHookVDotNet*.log</code> and Windows crash events, then surfaces the actual errors.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+            <h3>Game files browser</h3>
+            <p>Browse <code>.rpf</code> archives OpenIV-style — extract, preview and replace files. Add-on and <code>mods/</code>-folder archives open with no keys.</p>
+          </div>
+
+          <div class="card">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></div>
+            <h3>Vanilla snapshot</h3>
+            <p>Fingerprint your core game files while the folder is clean, then verify later whether anything drifted out of place.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TRUST ================= -->
+    <section id="trust" class="trust">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">Built to be trusted</span>
+          <h2>No keys shipped. No account. No telemetry.</h2>
+          <p>Ragekit reads RPF archives the same way OpenIV and CodeWalker do — using key material that only exists on your own machine.</p>
+        </div>
+
+        <div class="trust-grid">
+          <div class="trust-item">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Your executable, your key</h3>
+            <p>The AES key is found by scanning <b>your own</b> <code>GTA5.exe</code> for the block whose hash matches the known value. Nothing is bundled with Ragekit.</p>
+          </div>
+          <div class="trust-item">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> NG data from CodeWalker</h3>
+            <p>The NG key data is fetched at runtime from CodeWalker's public <code>magic.dat</code> and unscrambled locally with the key from your executable.</p>
+          </div>
+          <div class="trust-item">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Open source, MIT</h3>
+            <p>Every line is on GitHub. No installer bundleware, no background services, no data leaves your PC.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DOWNLOAD CTA ================= -->
+    <section class="download-cta">
+      <div class="wrap">
+        <h2>Get Ragekit</h2>
+        <p>Free and open source. Windows 10 and 11.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/LeVraiLunatix/ragekit/releases/latest" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download the latest release
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/LeVraiLunatix/ragekit#readme" target="_blank" rel="noopener">Read the docs</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FOOTER ================= -->
+    <footer>
+      <div class="wrap">
+        <span>© 2026 Ragekit · <a href="https://github.com/LeVraiLunatix/ragekit/blob/master/LICENSE" target="_blank" rel="noopener">MIT License</a></span>
+        <span class="foot-links">
+          <a href="https://github.com/LeVraiLunatix/ragekit" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/LeVraiLunatix/ragekit/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/LeVraiLunatix/ragekit/issues" target="_blank" rel="noopener">Issues</a>
+        </span>
+      </div>
+    </footer>
+
+    <p class="disclaimer">
+      Ragekit is an independent, community project. It is not affiliated with,
+      endorsed by, or associated with Rockstar Games or Take-Two Interactive.
+      Grand Theft Auto and GTA are trademarks of Take-Two Interactive. Use mods
+      at your own risk, and only in single-player Story Mode.
+    </p>
+  </body>
+</html>
