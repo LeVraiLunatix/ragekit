@@ -274,7 +274,7 @@ export const en = {
     dropHere: 'Drag mod files here',
     chooseFiles: 'Choose files…',
     chooseOiv: 'Install .oiv package…',
-    oivHint: 'An .oiv package opens the OpenIV-style installer.',
+    oivHint: 'An .oiv package opens its own installer.',
     install: 'Install',
     noMeta: 'No metadata',
   },
@@ -289,7 +289,7 @@ export const en = {
     gameFolderSub: 'Files are written straight into the game install. Harder to undo.',
     modsFolder: 'mods folder',
     modsFolderSub:
-      'OpenIV-style — the game reads it through the OpenIV.asi loader. Your vanilla files stay untouched.',
+      'The game reads it through the OpenIV.asi loader. Your original files stay untouched.',
     recommended: 'recommended',
     detected: 'detected',
     willCreate: 'will be created',
@@ -297,7 +297,7 @@ export const en = {
     noOps: 'This package declares no file operations.',
     looseFile: 'loose file',
     willApply: 'will apply',
-    needsOpenIV: 'needs OpenIV',
+    needsOpenIV: 'not yet supported',
     op: {
       add: 'Add',
       replace: 'Replace',
@@ -307,7 +307,7 @@ export const en = {
     supportedCount: '{supported} of {total} operations apply here',
     allSupported: 'All {total} operations apply here',
     skippedHint:
-      'Greyed operations write inside NG-encrypted vanilla archives (update.rpf, x64*.rpf) that Ragekit can’t rebuild yet — finish those in OpenIV.',
+      'Greyed operations are the ones Ragekit can’t apply yet: replacing a model or texture inside a .rpf, nested archives, and in-place XML edits.',
     needGameFolder: 'Set your GTA V folder in Settings first.',
     install: 'Install',
     installing: 'Installing…',
@@ -441,7 +441,7 @@ export const en = {
   },
   archives: {
     title: 'Game files',
-    subtitle: 'Browse GTA V .rpf archives — extract, preview and replace files (OpenIV-style).',
+    subtitle: 'Browse GTA V .rpf archives: extract, preview and replace files.',
     setFolderFirst: 'Set your game folder first',
     game: 'Game',
     mods: 'mods/ folder',

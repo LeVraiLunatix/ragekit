@@ -58,7 +58,7 @@ export async function applyOivPackage(
       done++
       try {
         if (op.kind === 'xml-edit') {
-          results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'in-place XML edit — apply with OpenIV' })
+          results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'in-place XML edit — not supported yet' })
           continue
         }
 

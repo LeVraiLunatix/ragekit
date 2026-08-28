@@ -276,7 +276,7 @@ export const es: Dict = {
     dropHere: 'Arrastra aquí los archivos del mod',
     chooseFiles: 'Elegir archivos…',
     chooseOiv: 'Instalar paquete .oiv…',
-    oivHint: 'Un paquete .oiv abre el instalador estilo OpenIV.',
+    oivHint: 'Un paquete .oiv abre su propio instalador.',
     install: 'Instalar',
     noMeta: 'Sin metadatos',
   },
@@ -291,7 +291,7 @@ export const es: Dict = {
     gameFolderSub: 'Los archivos se escriben directamente en el juego. Más difícil de deshacer.',
     modsFolder: 'carpeta mods',
     modsFolderSub:
-      'Estilo OpenIV — el juego la lee mediante el cargador OpenIV.asi. Tus archivos originales quedan intactos.',
+      'El juego la lee mediante el cargador OpenIV.asi. Tus archivos originales quedan intactos.',
     recommended: 'recomendado',
     detected: 'detectada',
     willCreate: 'se creará',
@@ -299,7 +299,7 @@ export const es: Dict = {
     noOps: 'Este paquete no declara operaciones de archivos.',
     looseFile: 'archivo suelto',
     willApply: 'se aplicará',
-    needsOpenIV: 'necesita OpenIV',
+    needsOpenIV: 'aún no admitido',
     op: {
       add: 'Añadir',
       replace: 'Reemplazar',
@@ -309,7 +309,7 @@ export const es: Dict = {
     supportedCount: '{supported} de {total} operaciones se aplican aquí',
     allSupported: 'Las {total} operaciones se aplican aquí',
     skippedHint:
-      'Las operaciones en gris escriben dentro de archivos vanilla cifrados en NG (update.rpf, x64*.rpf) que Ragekit aún no puede reconstruir — termínalas en OpenIV.',
+      'Las operaciones en gris son las que Ragekit aún no puede aplicar: reemplazar un modelo o una textura dentro de un .rpf, archivos anidados y ediciones XML in situ.',
     needGameFolder: 'Primero define tu carpeta de GTA V en Ajustes.',
     install: 'Instalar',
     installing: 'Instalando…',
@@ -419,7 +419,7 @@ export const es: Dict = {
   admin: {
     bannerTitle: 'Se requieren permisos de administrador',
     bannerBody:
-      'La carpeta de GTA V solo permite escribir a los administradores (igual que OpenIV). Reinicia Ragekit como administrador para instalar mods, apartar los cargadores y editar archivos.',
+      'La carpeta de GTA V solo permite escribir a los administradores. Reinicia Ragekit como administrador para instalar mods, apartar los cargadores y editar archivos.',
     relaunch: 'Reiniciar como administrador',
     relaunching: 'Reiniciando…',
     dialogTitle: 'Ragekit necesita permisos de administrador',
@@ -443,7 +443,7 @@ export const es: Dict = {
   },
   archives: {
     title: 'Archivos del juego',
-    subtitle: 'Explora los archivos .rpf de GTA V — extraer, previsualizar y reemplazar archivos (estilo OpenIV).',
+    subtitle: 'Explora los archivos .rpf de GTA V: extraer, previsualizar y reemplazar archivos.',
     setFolderFirst: 'Primero define tu carpeta del juego',
     game: 'Juego',
     mods: 'Carpeta mods/',

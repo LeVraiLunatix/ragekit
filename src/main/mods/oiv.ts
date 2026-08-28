@@ -259,7 +259,7 @@ function classifyOp(op: OivOp): OivContentOp {
   }
 
   if (op.kind === 'xml-edit') {
-    return { ...base, reason: 'in-place XML edit — apply with OpenIV' }
+    return { ...base, reason: 'in-place XML edit — not supported yet' }
   }
   if (!archive) {
     // Loose file — fully supported. `add` maps to add/replace at apply time.
