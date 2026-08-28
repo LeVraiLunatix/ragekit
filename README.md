@@ -4,16 +4,17 @@
 
 # Ragekit
 
-**Gestionnaire de mods & boîte à outils RPF pour Grand Theft Auto V — solo.**
+**Un gestionnaire de mods pour Grand Theft Auto V en solo, avec un explorateur d'archives `.rpf` en prime.**
 
-Importe tes mods une fois, active-les ou désactive-les, explore les archives
-`.rpf` du jeu façon OpenIV, et retrouve une désinstallation propre à chaque fois.
+Tu ajoutes tes mods une fois, tu les actives ou tu les coupes quand ça te
+chante, et le jour où tu ranges tout, le dossier du jeu se retrouve comme
+avant. L'explorateur `.rpf` marche dans l'esprit d'OpenIV.
 
 [![Télécharger](https://img.shields.io/github/v/release/LeVraiLunatix/ragekit?label=T%C3%A9l%C3%A9charger&style=for-the-badge&color=f5a524)](https://github.com/LeVraiLunatix/ragekit/releases/latest)
 [![Licence](https://img.shields.io/badge/Licence-MIT-blue?style=for-the-badge)](LICENSE)
 [![Plateforme](https://img.shields.io/badge/Windows-10%20%2F%2011-0a0b0e?style=for-the-badge&logo=windows)](https://github.com/LeVraiLunatix/ragekit/releases/latest)
 
-[**Site**](https://ragekit.vercel.app) · [Télécharger](https://github.com/LeVraiLunatix/ragekit/releases/latest) · [Signaler un bug](https://github.com/LeVraiLunatix/ragekit/issues)
+[**Site**](https://ragekit.vercel.app) · [Télécharger](https://github.com/LeVraiLunatix/ragekit/releases/latest) · [Un bug ?](https://github.com/LeVraiLunatix/ragekit/issues)
 
 </div>
 
@@ -21,72 +22,74 @@ Importe tes mods une fois, active-les ou désactive-les, explore les archives
 
 > [!WARNING]
 > **Solo uniquement.** Ne lance jamais GTA Online avec Script Hook V ou des
-> fichiers de jeu modifiés — ça peut faire bannir ton compte Rockstar. Active le
-> **mode Online-safe** avant de jouer en ligne : il sort tous les loaders du
-> dossier du jeu pour qu'il redémarre 100 % vanilla.
+> fichiers de jeu modifiés : tu risques le ban Rockstar. Avant de jouer en
+> ligne, passe en **mode Online-safe** — il sort tous les loaders du dossier et
+> le jeu redémarre 100 % vanilla.
 
 ## Télécharger
 
-Récupère le dernier installeur Windows sur la
-**[page des releases](https://github.com/LeVraiLunatix/ragekit/releases/latest)** —
-`Ragekit-<version>-setup.exe`. Lance-le : Ragekit t'accompagne avec un assistant
-de premier lancement (langue, emplacement du jeu, avertissement de sécurité).
+Attrape le dernier `.exe` sur la
+**[page des releases](https://github.com/LeVraiLunatix/ragekit/releases/latest)**
+et lance-le. Au premier démarrage il te pose trois questions (ta langue, où est
+installé GTA V, et le petit rappel sécurité), et c'est bon.
 
-L'installeur n'est pas encore signé, donc Windows SmartScreen peut afficher un
-avertissement au premier lancement — choisis *Informations complémentaires →
-Exécuter quand même*.
+L'installeur n'est pas encore signé, donc Windows SmartScreen va sûrement râler
+la première fois : *Informations complémentaires → Exécuter quand même*.
 
-## Fonctions
+## Ce qu'il fait
 
-- **Assistant de premier lancement** — choisis ta langue (FR / EN / ES / DE),
-  localise le jeu, lis l'avertissement de sécurité. Flux animé soigné.
-- **Détection auto du jeu** — Steam, Epic et le launcher Rockstar, ou sélection
-  manuelle du dossier.
-- **Import universel** — `.zip`, `.rar`, `.oiv`, ou un simple dossier. Les
-  fichiers sont classés et routés automatiquement : `.asi` → racine, fichiers
-  `scripts/`, DLL loaders, arbres `mods/`.
-- **Packages OpenIV `.oiv`** — métadonnées et opérations sur fichiers loose
-  appliquées ; les opérations sur archives `.rpf` sont détectées et signalées.
-- **Install / désinstall propres** — les mods vivent dans une bibliothèque
-  interne, les fichiers de jeu remplacés sont sauvegardés, et désactiver ou
-  retirer un mod restaure les originaux.
-- **Mode Online-safe** — un bouton déplace tous les loaders de mods (`dinput8` /
-  `version` / `winmm.dll`, `ScriptHookV.dll`, tous les `.asi` racine, et les
-  dossiers `mods/` `scripts/` `plugins/`) hors du dossier du jeu, qui redevient
-  identique au vanilla, octet pour octet. Rebascule pour tout restaurer.
-- **Adoption des mods existants** — scanne le dossier du jeu pour les mods
-  installés à la main ou par un autre outil et les intègre à la bibliothèque.
-- **Profils** — des configs de mods nommées que tu enclenches en un clic.
-- **Ordre de chargement & conflits** — réordonne les `.asi` / scripts et vois
-  quand deux mods écrivent le même fichier.
-- **Vérif des dépendances** — Script Hook V, Script Hook V .NET, OpenIV.asi.
-- **Diagnostic** — parse `ScriptHookV.log`, `asiloader.log`,
-  `ScriptHookVDotNet*.log`, `openIV.log` et les événements de crash Windows, puis
-  remonte les erreurs.
-- **Explorateur de fichiers du jeu** — navigue dans les archives `.rpf` façon
-  OpenIV : extraire, prévisualiser, remplacer des fichiers. Les archives add-on
-  et du dossier `mods/` s'ouvrent sans clé.
-- **Empreinte vanilla** — prends l'empreinte des fichiers de jeu quand ils sont
-  propres, puis vérifie plus tard si quelque chose a bougé.
-- **Installation depuis GTA5-Mods.com** *(expérimental)* — colle un lien de mod ;
-  il télécharge, classe et installe, puis vérifie la page plus tard pour les
-  mises à jour.
+- **Premier lancement guidé.** Choix de la langue (FR / EN / ES / DE), on
+  localise le jeu, on lit l'avertissement, et on démarre.
+- **Détection du jeu.** Steam, Epic, le launcher Rockstar — ou tu pointes le
+  dossier à la main.
+- **Import.** Un `.zip`, un `.rar`, un `.oiv` ou juste un dossier. Ragekit trie
+  ce qu'il y a dedans : les `.asi` à la racine, les scripts au bon endroit, les
+  DLL loaders, les arbres `mods/`.
+- **Packages OpenIV `.oiv`.** Les métadonnées et les fichiers loose sont posés ;
+  les opérations sur archives `.rpf` sont repérées et signalées.
+- **Install / désinstall propres.** Tout est copié dans une bibliothèque à part.
+  Quand un mod remplace un fichier du jeu, l'original est mis de côté et remis en
+  place si tu désactives.
+- **Mode Online-safe.** Un bouton, et `dinput8` / `version` / `winmm.dll`,
+  `ScriptHookV.dll`, les `.asi` de la racine et les dossiers `mods/` `scripts/`
+  `plugins/` quittent le dossier du jeu. Il redevient identique au vanilla, au
+  fichier près. Tu rebascules quand tu veux rejouer avec tes mods.
+- **Adoption.** Il scanne le dossier du jeu, retrouve les mods que tu as posés à
+  la main ou avec un autre outil, et les fait rentrer dans la bibliothèque.
+- **Profils.** Tu enregistres un set de mods sous un nom et tu bascules dessus en
+  un clic.
+- **Ordre de chargement et conflits.** Tu montes et descends les `.asi` et les
+  scripts. Si deux mods touchent au même fichier, il te prévient (c'est le
+  dernier chargé qui gagne).
+- **Dépendances.** Il regarde si Script Hook V, Script Hook V .NET et OpenIV.asi
+  sont là. S'il en manque, tu as le lien officiel.
+- **Diagnostic.** Il lit `ScriptHookV.log`, `asiloader.log`, les logs SHVDN et
+  `openIV.log`, plus les rapports de crash de Windows, et te pointe l'erreur et
+  le module fautif.
+- **Explorateur de fichiers du jeu.** Tu ouvres les archives `.rpf` comme dans
+  OpenIV : extraire, prévisualiser, remplacer. Les archives add-on et celles du
+  dossier `mods/` s'ouvrent sans clé.
+- **Empreinte vanilla.** Une empreinte de tes fichiers quand le jeu est propre,
+  pour vérifier plus tard si quelque chose a bougé.
+- **Install depuis GTA5-Mods.com** *(expérimental).* Tu colles un lien, il
+  télécharge, classe et installe, puis revient voir la page pour les mises à
+  jour.
 
-## Comment marche le déchiffrement RPF / NG
+## Le déchiffrement RPF / NG, en deux mots
 
-Les tables des matières des archives `.rpf` de GTA V sont chiffrées en AES avec
-une clé intégrée à `GTA5.exe`, et les archives vanilla ajoutent une seconde
-couche « NG ». Ragekit **ne distribue jamais les clés de Rockstar** :
+Les sommaires des archives `.rpf` sont chiffrés en AES avec une clé planquée
+dans `GTA5.exe`, et les archives d'origine ajoutent par-dessus une couche
+« NG ». Ragekit ne trimballe aucune clé de Rockstar :
 
-- La clé AES est trouvée en scannant **ton propre** `GTA5.exe` à la recherche du
-  bloc de 32 octets dont le SHA-1 correspond à la valeur connue — la même méthode
-  qu'OpenIV et CodeWalker.
-- Les données de clé NG sont récupérées au runtime depuis le `magic.dat` public
-  de [CodeWalker](https://github.com/dexyfex/CodeWalker) et désembrouillées en
-  local avec la clé AES de ton exécutable.
+- La clé AES est retrouvée en fouillant **ton propre** `GTA5.exe` : le bloc de
+  32 octets dont le SHA-1 tombe sur la valeur connue. C'est la méthode d'OpenIV
+  et de CodeWalker.
+- Les données NG sont téléchargées au lancement depuis le `magic.dat` public de
+  [CodeWalker](https://github.com/dexyfex/CodeWalker), puis décodées chez toi
+  avec la clé de ton exécutable.
 
-Rien d'exploitable n'est empaqueté, et il faut posséder le jeu pour que quoi que
-ce soit fonctionne. Le déchiffrement NG est **expérimental**.
+Rien d'utilisable n'est livré avec Ragekit, et sans le jeu ça ne tourne pas. Le
+NG est encore **expérimental**.
 
 ## Développement
 
@@ -95,33 +98,32 @@ npm install
 npm run dev
 ```
 
-Le renderer tourne aussi dans un navigateur classique (`vite`) via un mock de
+Le renderer tourne aussi dans un vrai navigateur (`vite`), grâce à un faux
 `window.api` dans
 [`src/renderer/src/lib/browserMock.ts`](src/renderer/src/lib/browserMock.ts) —
-pratique pour itérer vite sur l'UI.
+pratique pour bosser l'UI vite fait.
 
-### Construire un installeur Windows
+### Construire l'installeur Windows
 
 ```bash
 npm run dist
 ```
 
-Sortie : `release/<version>/Ragekit-<version>-setup.exe` (NSIS). Les tags poussés
-(`v*`) construisent et publient une GitHub Release automatiquement via
+Ça sort `release/<version>/Ragekit-<version>-setup.exe` (NSIS). Un tag `v*`
+poussé sur GitHub build et publie la release tout seul, via
 [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
 ## Stack
 
 Electron · electron-vite · React + TypeScript · Tailwind CSS · zustand ·
-framer-motion · electron-builder (NSIS). Gestion des archives : `adm-zip`,
+framer-motion · electron-builder (NSIS). Pour les archives : `adm-zip`,
 `node-unrar-js`, `fast-xml-parser`.
 
 ## Crédits
 
-Approche cryptographique et données de clé NG issues d'[OpenIV](https://openiv.com/)
-et [CodeWalker](https://github.com/dexyfex/CodeWalker). Ragekit est un projet
-indépendant, **sans aucune affiliation avec Rockstar Games ou Take-Two
-Interactive**.
+L'approche crypto et les données NG viennent d'[OpenIV](https://openiv.com/) et
+[CodeWalker](https://github.com/dexyfex/CodeWalker). Ragekit n'a rien à voir
+avec Rockstar Games ni Take-Two Interactive — c'est juste un projet perso.
 
 ## Licence
 

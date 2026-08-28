@@ -6,7 +6,7 @@
     <title>Ragekit — gestionnaire de mods GTA V solo</title>
     <meta
       name="description"
-      content="Ragekit — gestionnaire de mods et boîte à outils RPF pour Grand Theft Auto V solo. Importe une fois, active ou désactive, et retrouve un dossier de jeu nickel à chaque fois. Windows, gratuit, open source (MIT)."
+      content="Un gestionnaire de mods pour GTA V en solo, avec un explorateur d'archives RPF. Tu ajoutes tes mods, tu les actives quand tu veux, et tu peux tout enlever sans laisser de bazar dans le dossier du jeu. Windows, gratuit, open source."
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="https://ragekit.vercel.app/" />
@@ -16,7 +16,7 @@
     <meta property="og:title" content="Ragekit — gestionnaire de mods GTA V solo" />
     <meta
       property="og:description"
-      content="Importe tes mods une fois, active ou désactive-les, et retrouve un dossier de jeu nickel à chaque fois. Windows · gratuit · open source."
+      content="Tu ajoutes tes mods, tu les actives ou tu les coupes quand tu veux, et tu peux tout enlever sans laisser de bazar dans le dossier du jeu. Windows · gratuit · open source."
     />
     <meta property="og:url" content="https://ragekit.vercel.app/" />
     <meta property="og:image" content="https://ragekit.vercel.app/icon.png" />
@@ -632,7 +632,7 @@
           <path fill="url(#c-h)" d="M26 20 H34 C39 20 41.5 22 41.5 24.5 C41.5 27 39 29 34 29 H26 Z" />
         </svg>
         Ragekit
-        <span class="v">v0.1.0</span>
+        <span class="v">v0.1.1</span>
       </a>
       <div class="tag">GTA&nbsp;V · <b>MODE&nbsp;SOLO</b> · WINDOWS</div>
     </header>
@@ -669,10 +669,10 @@
           <h1 class="hero">Modde GTA&nbsp;V<span class="l2">sans laisser de traces</span></h1>
 
           <p class="hero-lead">
-            Gestionnaire de mods &amp; boîte à outils RPF pour <b>Grand Theft
-            Auto&nbsp;V solo</b>. Tu importes une fois, tu actives ou désactives à
-            la volée, et ton dossier de jeu redevient <b>identique au vanilla</b>
-            quand tu le veux.
+            Un gestionnaire de mods pour <b>GTA&nbsp;V en solo</b>, avec un
+            explorateur d'archives RPF en prime. Tu ajoutes un mod une fois, tu
+            l'actives ou tu le coupes quand ça te chante, et si tu ranges tout,
+            le dossier du jeu se retrouve <b>comme avant</b>.
           </p>
 
           <div class="cta">
@@ -687,8 +687,9 @@
           </div>
 
           <p class="fineprint">
-            <b>Aucun compte.</b> Aucune télémétrie. <b>Open source</b> · MIT.
-            Installeur pas encore signé — SmartScreen peut râler au 1er lancement.
+            Pas de compte à créer, rien qui tourne en fond, code ouvert sous
+            licence MIT. L'installeur n'est pas encore signé, donc Windows
+            SmartScreen risque de râler la première fois.
             <a href="https://github.com/LeVraiLunatix/ragekit/releases" target="_blank" rel="noopener" style="color:var(--ink-soft);text-decoration:underline;text-underline-offset:2px">Toutes les versions →</a>
           </p>
 
@@ -696,9 +697,10 @@
             <div class="w-top"><span class="stars">★ ★ ★ ☆ ☆</span> Solo uniquement</div>
             <p>
               Ne lance <b>jamais</b> GTA&nbsp;Online avec Script Hook&nbsp;V ou des
-              fichiers de jeu modifiés : ça peut faire <b>bannir ton compte
-              Rockstar</b>. Le <b>mode Online-safe</b> de Ragekit sort tous les
-              loaders du dossier en un clic, le jeu redémarre 100&nbsp;% vanilla.
+              fichiers de jeu modifiés : tu risques le <b>ban Rockstar</b>. Avant
+              de jouer en ligne, passe en <b>mode Online-safe</b> — un bouton, et
+              tous les loaders sortent du dossier. Le jeu redémarre 100&nbsp;%
+              vanilla.
             </p>
           </div>
         </div>
@@ -707,19 +709,19 @@
       <!-- ============ 02 · FONCTIONS ============ -->
       <section id="fonctions">
         <div class="inner">
-          <span class="kicker rv">Fiche technique</span>
+          <span class="kicker rv">Ce qu'il y a dedans</span>
           <h2 class="sec rv">Ce que ça fait</h2>
           <p class="sec-lead rv">
-            Importer, basculer, réordonner, diagnostiquer, revenir en arrière —
-            sans jamais laisser un dossier de jeu en vrac.
+            Installer des mods, les tester, comprendre pourquoi ça crashe, et
+            pouvoir tout défaire sans salir le dossier du jeu.
           </p>
 
           <ol class="feats">
             <li class="rv">
               <span class="n">01</span>
               <div class="ft">
-                <h3>Import universel</h3>
-                <p>Un <code>.zip</code>, <code>.rar</code>, <code>.oiv</code> ou un simple dossier. Les fichiers sont classés et rangés tout seuls — ASI à la racine, scripts, DLL loaders, arbres <code>mods/</code>.</p>
+                <h3>Import</h3>
+                <p>Un <code>.zip</code>, un <code>.rar</code>, un <code>.oiv</code> ou juste un dossier. Ragekit trie ce qu'il y a dedans : les <code>.asi</code> à la racine, les scripts au bon endroit, les DLL loaders, les arbres <code>mods/</code>.</p>
               </div>
               <span class="meta">zip · rar · oiv</span>
             </li>
@@ -727,7 +729,7 @@
               <span class="n">02</span>
               <div class="ft">
                 <h3>Activer / désactiver</h3>
-                <p>Les mods vivent dans une bibliothèque interne. Les fichiers du jeu remplacés sont sauvegardés ; désactiver un mod restaure l'original à l'identique.</p>
+                <p>Tout est copié dans une bibliothèque à part. Quand un mod remplace un fichier du jeu, l'original est mis de côté et remis en place si tu désactives.</p>
               </div>
               <span class="meta">backup auto</span>
             </li>
@@ -735,7 +737,7 @@
               <span class="n">03</span>
               <div class="ft">
                 <h3>Mode Online-safe</h3>
-                <p>Un bouton met de côté tous les loaders — <code>dinput8</code>, <code>ScriptHookV.dll</code>, les <code>.asi</code> racine, le dossier <code>mods/</code> — et laisse le dossier octet pour octet identique au vanilla.</p>
+                <p>Un bouton, et <code>dinput8</code>, <code>ScriptHookV.dll</code>, les <code>.asi</code> de la racine et le dossier <code>mods/</code> quittent le dossier du jeu. Il redevient identique au vanilla, au fichier près.</p>
               </div>
               <span class="meta">1 clic</span>
             </li>
@@ -743,7 +745,7 @@
               <span class="n">04</span>
               <div class="ft">
                 <h3>Profils</h3>
-                <p>Des configs de mods nommées que tu enclenches en un clic. Un set « course », un set « photo » — ce que tu veux.</p>
+                <p>Tu enregistres un ensemble de mods sous un nom et tu bascules dessus quand tu veux. Un profil course, un profil screenshots, comme tu le sens.</p>
               </div>
               <span class="meta">loadouts</span>
             </li>
@@ -751,15 +753,15 @@
               <span class="n">05</span>
               <div class="ft">
                 <h3>Ordre de chargement &amp; conflits</h3>
-                <p>Réordonne les <code>.asi</code> et les scripts, et sois prévenu quand deux mods écrivent le même fichier — le dernier chargé gagne.</p>
+                <p>Tu montes et descends les <code>.asi</code> et les scripts. Si deux mods touchent au même fichier, Ragekit te le dit (c'est le dernier chargé qui l'emporte).</p>
               </div>
               <span class="meta">diff fichiers</span>
             </li>
             <li class="rv">
               <span class="n">06</span>
               <div class="ft">
-                <h3>Vérif des dépendances</h3>
-                <p>Script Hook&nbsp;V, Script Hook&nbsp;V .NET et OpenIV.asi détectés dans ton install ; liens officiels pour ceux qui manquent.</p>
+                <h3>Dépendances</h3>
+                <p>Ragekit regarde si Script Hook&nbsp;V, Script Hook&nbsp;V .NET et OpenIV.asi sont là. S'il en manque, tu as le lien officiel.</p>
               </div>
               <span class="meta">SHV · SHVDN</span>
             </li>
@@ -767,7 +769,7 @@
               <span class="n">07</span>
               <div class="ft">
                 <h3>Diagnostic</h3>
-                <p>Parse <code>ScriptHookV.log</code>, <code>asiloader.log</code>, <code>ScriptHookVDotNet*.log</code> et les events de crash Windows, puis te sort l'erreur réelle et le module fautif.</p>
+                <p>Il lit <code>ScriptHookV.log</code>, <code>asiloader.log</code>, les logs SHVDN et les rapports de crash de Windows, et te pointe l'erreur et le module qui a planté.</p>
               </div>
               <span class="meta">logs + WER</span>
             </li>
@@ -775,7 +777,7 @@
               <span class="n">08</span>
               <div class="ft">
                 <h3>Explorateur de fichiers du jeu</h3>
-                <p>Navigue dans les archives <code>.rpf</code> façon OpenIV — extraire, prévisualiser, remplacer. Les archives add-on et du dossier <code>mods/</code> s'ouvrent sans clé.</p>
+                <p>Tu ouvres les archives <code>.rpf</code> comme dans OpenIV : extraire, prévisualiser, remplacer. Les archives add-on et celles du dossier <code>mods/</code> s'ouvrent sans clé.</p>
               </div>
               <span class="meta">RPF v7</span>
             </li>
@@ -783,7 +785,7 @@
               <span class="n">09</span>
               <div class="ft">
                 <h3>Empreinte vanilla</h3>
-                <p>Prends l'empreinte de tes fichiers de jeu propres, puis vérifie plus tard si quelque chose a bougé.</p>
+                <p>Tu prends une empreinte de tes fichiers quand le jeu est propre. Plus tard, tu vérifies si quelque chose a bougé.</p>
               </div>
               <span class="meta">SHA-1</span>
             </li>
@@ -797,46 +799,38 @@
           <span class="kicker rv">Sous le capot</span>
           <h2 class="sec rv">Aucune clé distribuée</h2>
           <p class="sec-lead rv">
-            Ragekit lit les archives RPF exactement comme OpenIV et CodeWalker —
-            avec du matériel de clé qui n'existe que sur <em>ta</em> machine.
+            Ragekit lit les <code>.rpf</code> comme OpenIV et CodeWalker. Les
+            clés qui servent à ça ne sortent jamais de ta machine.
           </p>
 
           <div class="term rv">
             <div class="bar"><i></i> ragekit — contrôle d'intégrité</div>
             <div class="body">
-              <div class="row"><span class="ok">[ OK ]</span> clé AES lue depuis <b>TON</b> GTA5.exe (match SHA-1)</div>
-              <div class="row"><span class="ok">[ OK ]</span> données NG récupérées via CodeWalker · magic.dat</div>
-              <div class="row"><span class="ok">[ OK ]</span> déchiffrement RPF en local — rien d'exploitable stocké</div>
-              <div class="row"><span class="ok">[ OK ]</span> aucun compte · aucune télémétrie · aucun service en fond</div>
-              <div class="row"><span class="ok">[ OK ]</span> code source intégral sur GitHub · licence MIT</div>
+              <div class="row"><span class="ok">[ OK ]</span> clé AES : lue dans ton GTA5.exe (repérée par son hash)</div>
+              <div class="row"><span class="ok">[ OK ]</span> données NG : magic.dat pris chez CodeWalker, décodé en local</div>
+              <div class="row"><span class="ok">[ OK ]</span> aucun compte, aucune télémétrie, rien qui tourne en fond</div>
+              <div class="row"><span class="ok">[ OK ]</span> tout le code est sur GitHub, licence MIT</div>
               <div class="row rule">──────────────────────────────────────────────</div>
-              <div class="row out">&gt; aucune clé Rockstar n'est fournie. il faut posséder le jeu.<span class="cursor"></span></div>
+              <div class="row out">&gt; rien qui vienne de Rockstar n'est fourni. faut posséder le jeu.<span class="cursor"></span></div>
             </div>
           </div>
 
-          <div class="trust-notes rv">
-            <div>
-              <h4>Ton exécutable, ta clé</h4>
-              <p>La clé AES est trouvée en scannant <b>ton propre</b> <code>GTA5.exe</code> — le bloc dont le hash correspond à la valeur connue. Rien n'est empaqueté avec Ragekit.</p>
-            </div>
-            <div>
-              <h4>Données NG via CodeWalker</h4>
-              <p>Le <code>magic.dat</code> public de CodeWalker est récupéré au runtime puis désembrouillé en local avec la clé de ton exécutable.</p>
-            </div>
-            <div>
-              <h4>Open source, MIT</h4>
-              <p>Chaque ligne est sur GitHub. Pas de bundleware dans l'installeur, aucune donnée ne quitte ton PC.</p>
-            </div>
-          </div>
+          <p class="sec-lead rv" style="margin-top:24px">
+            En clair : la clé AES est cherchée dans ton propre
+            <code>GTA5.exe</code> (le bloc dont le hash tombe sur la bonne
+            valeur), et le <code>magic.dat</code> de CodeWalker est téléchargé au
+            lancement puis décodé chez toi. Rien de tout ça n'est livré avec
+            Ragekit, et sans le jeu, ça ne marche pas.
+          </p>
         </div>
       </section>
 
       <!-- ============ 04 · TÉLÉCHARGER ============ -->
       <section id="telecharger">
         <div class="inner">
-          <span class="kicker rv">Récupérer le fichier</span>
+          <span class="kicker rv">L'installeur</span>
           <h2 class="sec rv">Télécharger</h2>
-          <p class="sec-lead rv">Gratuit et open source. Windows&nbsp;10 et 11.</p>
+          <p class="sec-lead rv">C'est gratuit et le code est ouvert. Windows&nbsp;10 ou 11.</p>
 
           <div class="slot rv">
             <svg class="rk" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -875,11 +869,10 @@
               <a href="https://github.com/LeVraiLunatix/ragekit/blob/master/LICENSE" target="_blank" rel="noopener">Licence MIT</a>
             </div>
             <p class="disc">
-              Ragekit est un projet indépendant et communautaire. Il n'est ni
-              affilié à, ni approuvé par, ni associé à Rockstar Games ou Take-Two
-              Interactive. Grand Theft Auto et GTA sont des marques de Take-Two
-              Interactive. Utilise les mods à tes risques, et uniquement en solo /
-              Mode Histoire. © 2026 Ragekit.
+              Ragekit est un projet perso, fait sur mon temps libre. Aucun lien
+              avec Rockstar Games ou Take-Two Interactive. « Grand Theft Auto » et
+              « GTA » sont des marques de Take-Two. Tu utilises les mods à tes
+              risques, et seulement en solo. © 2026 Ragekit.
             </p>
           </footer>
         </div>
