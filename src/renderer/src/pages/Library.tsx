@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import {
   Boxes,
   FolderOpen,
@@ -14,13 +15,16 @@ import {
   ArrowUpCircle,
   Search,
   Power,
+  CheckSquare,
+  X,
 } from 'lucide-react'
 import type { FoundMod, Mod, ModCategory } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { GameModeCard } from '@/components/GameModeCard'
-import { Button, Card, Badge, Toggle, EmptyState } from '@/components/ui'
+import { Button, Card, Badge, Toggle, Checkbox, Segmented, EmptyState } from '@/components/ui'
+import { cn } from '@/lib/utils'
 
 type SortKey = 'order' | 'category' | 'name' | 'recent' | 'status' | 'type'
 type FilterKey = 'all' | 'installed' | 'disabled' | 'updates'
@@ -36,12 +40,28 @@ const CAT_ORDER: ModCategory[] = [
   'data',
   'other',
 ]
+const CAT_COLOR: Record<ModCategory, string> = {
+  vehicle: '#5b8def',
+  weapon: '#e0637a',
+  ped: '#c06ff2',
+  map: '#57c85b',
+  graphics: '#f5a524',
+  audio: '#3fbfbf',
+  script: '#8b93a7',
+  data: '#b0863f',
+  other: '#6a7180',
+}
 const catRank = (c: ModCategory | undefined): number => {
   const i = CAT_ORDER.indexOf(c ?? 'other')
   return i === -1 ? CAT_ORDER.length : i
 }
+const STATUS_RANK: Record<Mod['status'], number> = {
+  installed: 0,
+  error: 1,
+  disabled: 2,
+  'not-installed': 3,
+}
 
-/** Small localStorage-backed state so the sort/filter choice sticks. */
 function usePersisted<T extends string>(key: string, initial: T): [T, (v: T) => void] {
   const [v, setV] = useState<T>(() => {
     try {
@@ -135,6 +155,9 @@ function ModRow({
   mod,
   locked,
   sortable,
+  selectable,
+  selected,
+  onSelect,
   conflictWith,
   hasUpdate,
   canMoveUp,
@@ -143,6 +166,9 @@ function ModRow({
   mod: Mod
   locked: boolean
   sortable: boolean
+  selectable: boolean
+  selected: boolean
+  onSelect: (v: boolean) => void
   conflictWith: string[]
   hasUpdate: boolean
   canMoveUp: boolean
@@ -152,6 +178,7 @@ function ModRow({
   const { refreshMods, refreshDeps } = useAppStore()
   const [busy, setBusy] = useState(false)
   const enabled = mod.status === 'installed'
+  const cat = mod.category ?? 'other'
 
   const move = (direction: 'up' | 'down'): void => {
     void window.api.mods.move(mod.id, direction).then(() => Promise.all([refreshMods(), refreshDeps()]))
@@ -169,6 +196,8 @@ function ModRow({
           const ok = await window.api.system.relaunchAdmin()
           if (!ok) alert(t('admin.devHint'))
         }
+      } else if (msg.includes('No handler registered')) {
+        alert(t('common.restartApp'))
       } else {
         alert(msg)
       }
@@ -191,9 +220,26 @@ function ModRow({
   const showArrows = enabled && !locked && sortable
 
   return (
-    <Card className="flex items-center gap-3 p-4">
-      {showArrows ? (
-        <div className="flex flex-col">
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+      className={cn(
+        'group flex items-center gap-3 rounded-xl border bg-bg-card p-3.5 pr-3 shadow-card transition-colors',
+        selected ? 'border-brand/50 bg-brand/[0.04]' : 'border-line hover:border-ink-faint/40',
+      )}
+    >
+      <div className="flex w-4 shrink-0 items-center justify-center">
+        {selectable || selected ? (
+          <Checkbox checked={selected} onChange={onSelect} />
+        ) : (
+          <span className="size-2.5 rounded-full" style={{ backgroundColor: CAT_COLOR[cat] }} />
+        )}
+      </div>
+
+      {showArrows && (
+        <div className="-my-1 flex flex-col">
           <button
             onClick={() => move('up')}
             disabled={!canMoveUp}
@@ -211,20 +257,23 @@ function ModRow({
             <ChevronDown className="size-4" />
           </button>
         </div>
-      ) : (
-        enabled && !locked && <div className="w-4 shrink-0" />
       )}
+
       <Toggle checked={enabled} onChange={toggle} disabled={busy || locked} />
+
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium">{mod.name}</p>
+          <p className="truncate text-[13.5px] font-medium">{mod.name}</p>
           {mod.kind === 'oiv' ? (
             <PackageOpen className="size-3.5 shrink-0 text-ink-faint" />
           ) : (
             <FileBox className="size-3.5 shrink-0 text-ink-faint" />
           )}
-          <span className="shrink-0 rounded border border-line px-1.5 py-px text-[10px] uppercase tracking-wide text-ink-faint">
-            {t(`library.category.${mod.category ?? 'other'}`)}
+          <span
+            className="shrink-0 rounded-md border px-1.5 py-px text-[10px] uppercase tracking-wide"
+            style={{ color: CAT_COLOR[cat], borderColor: `${CAT_COLOR[cat]}44` }}
+          >
+            {t(`library.category.${cat}`)}
           </span>
           {mod.tags.includes('adopted') && <Badge tone="neutral">adopted</Badge>}
           {hasUpdate && (
@@ -234,7 +283,7 @@ function ModRow({
               title={t('remote.updateAvailable')}
             >
               <ArrowUpCircle className="size-3.5" />
-              <span className="text-[11px] font-medium uppercase tracking-wide">
+              <span className="text-[10.5px] font-semibold uppercase tracking-wide">
                 {t('remote.updateAvailable')}
               </span>
             </button>
@@ -245,13 +294,13 @@ function ModRow({
               className="inline-flex items-center gap-1 text-warn"
             >
               <TriangleAlert className="size-3.5" />
-              <span className="text-[11px] font-medium uppercase tracking-wide">
+              <span className="text-[10.5px] font-semibold uppercase tracking-wide">
                 {t('library.conflict')}
               </span>
             </span>
           )}
         </div>
-        <p className="truncate text-[12px] text-ink-faint">
+        <p className="mt-0.5 truncate text-[11.5px] text-ink-faint">
           {[
             mod.author,
             mod.version && `v${mod.version}`,
@@ -262,22 +311,25 @@ function ModRow({
             .join(' · ')}
         </p>
       </div>
-      <StatusBadge status={mod.status} />
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => window.api.mods.openFolder(mod.id)}>
-        <FolderOpen className="size-3.5" />
-      </Button>
-      <Button size="sm" variant="ghost" disabled={busy || locked} onClick={remove}>
-        <Trash2 className="size-3.5" />
-      </Button>
-    </Card>
-  )
-}
 
-const STATUS_RANK: Record<Mod['status'], number> = {
-  installed: 0,
-  error: 1,
-  disabled: 2,
-  'not-installed': 3,
+      <StatusBadge status={mod.status} />
+      <button
+        disabled={busy}
+        onClick={() => window.api.mods.openFolder(mod.id)}
+        title={t('nav.openGameFolder')}
+        className="no-drag grid size-8 place-items-center rounded-lg text-ink-faint transition-colors hover:bg-bg-hover hover:text-ink disabled:opacity-40"
+      >
+        <FolderOpen className="size-4" />
+      </button>
+      <button
+        disabled={busy || locked}
+        onClick={remove}
+        className="no-drag grid size-8 place-items-center rounded-lg text-ink-faint opacity-0 transition-colors hover:bg-bad/15 hover:text-bad group-hover:opacity-100 disabled:opacity-0"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </motion.div>
+  )
 }
 
 export function LibraryPage(): ReactNode {
@@ -288,10 +340,23 @@ export function LibraryPage(): ReactNode {
   const [checking, setChecking] = useState(false)
   const [bulk, setBulk] = useState(false)
   const [query, setQuery] = useState('')
-  const [sort, setSort] = usePersisted<SortKey>('lib.sort', 'order')
-  const [filter, setFilter] = usePersisted<FilterKey>('lib.filter', 'all')
+  const [sort, setSort] = usePersisted<SortKey>('lib.sort', 'category')
+  const [statusFilter, setStatusFilter] = usePersisted<FilterKey>('lib.filter', 'all')
+  const [cat, setCat] = useState<string>('all')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
   const hasSourced = mods.some((m) => m.sourceUrl)
   const installedCount = mods.filter((m) => m.status === 'installed').length
+
+  useEffect(() => {
+    // drop selections for mods that vanished
+    setSelected((s) => {
+      const live = new Set(mods.map((m) => m.id))
+      const next = new Set([...s].filter((id) => live.has(id)))
+      return next.size === s.size ? s : next
+    })
+  }, [mods])
 
   const checkUpdates = async (): Promise<void> => {
     setChecking(true)
@@ -303,23 +368,27 @@ export function LibraryPage(): ReactNode {
     }
   }
 
-  const setAll = async (enabled: boolean): Promise<void> => {
+  const handleWriteError = async (err: unknown): Promise<void> => {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('GAME_DIR_NOT_WRITABLE')) {
+      if (confirm(`${t('admin.dialogTitle')}\n\n${t('admin.dialogBody')}`)) {
+        const ok = await window.api.system.relaunchAdmin()
+        if (!ok) alert(t('admin.devHint'))
+      }
+    } else if (msg.includes('No handler registered')) {
+      alert(t('common.restartApp'))
+    } else {
+      alert(msg)
+    }
+  }
+
+  const runBulk = async (fn: () => Promise<unknown>): Promise<void> => {
     setBulk(true)
     try {
-      await window.api.mods.setAllEnabled(enabled)
+      await fn()
       await Promise.all([refreshMods(), refreshDeps()])
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      if (msg.includes('GAME_DIR_NOT_WRITABLE')) {
-        if (confirm(`${t('admin.dialogTitle')}\n\n${t('admin.dialogBody')}`)) {
-          const ok = await window.api.system.relaunchAdmin()
-          if (!ok) alert(t('admin.devHint'))
-        }
-      } else if (msg.includes('No handler registered')) {
-        alert(t('common.restartApp'))
-      } else {
-        alert(msg)
-      }
+      await handleWriteError(err)
     } finally {
       setBulk(false)
     }
@@ -337,13 +406,23 @@ export function LibraryPage(): ReactNode {
     return map
   }, [conflicts, nameById])
 
+  const catCounts = useMemo(() => {
+    const m = new Map<ModCategory, number>()
+    for (const mod of mods) {
+      const c = mod.category ?? 'other'
+      m.set(c, (m.get(c) ?? 0) + 1)
+    }
+    return m
+  }, [mods])
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let list = mods.filter((m) => {
+    const list = mods.filter((m) => {
       if (q && !`${m.name} ${m.author ?? ''}`.toLowerCase().includes(q)) return false
-      if (filter === 'installed') return m.status === 'installed'
-      if (filter === 'disabled') return m.status !== 'installed'
-      if (filter === 'updates') return updates.has(m.id)
+      if (cat !== 'all' && (m.category ?? 'other') !== cat) return false
+      if (statusFilter === 'installed') return m.status === 'installed'
+      if (statusFilter === 'disabled') return m.status !== 'installed'
+      if (statusFilter === 'updates') return updates.has(m.id)
       return true
     })
     const cmp: Record<SortKey, (a: Mod, b: Mod) => number> = {
@@ -355,10 +434,10 @@ export function LibraryPage(): ReactNode {
       type: (a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name),
     }
     return [...list].sort(cmp[sort])
-  }, [mods, query, filter, sort, updates])
+  }, [mods, query, cat, statusFilter, sort, updates])
 
   const groups = useMemo(() => {
-    if (sort !== 'category') return null
+    if (sort !== 'category' || cat !== 'all') return null
     const by = new Map<ModCategory, Mod[]>()
     for (const m of visible) {
       const c = m.category ?? 'other'
@@ -366,7 +445,7 @@ export function LibraryPage(): ReactNode {
       by.get(c)!.push(m)
     }
     return CAT_ORDER.filter((c) => by.has(c)).map((c) => [c, by.get(c)!] as const)
-  }, [visible, sort])
+  }, [visible, sort, cat])
 
   const installedOrder = useMemo(
     () =>
@@ -377,8 +456,20 @@ export function LibraryPage(): ReactNode {
     [mods],
   )
 
+  const visibleIds = useMemo(() => visible.map((m) => m.id), [visible])
+  const selCount = selected.size
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
+
+  const toggleSel = (id: string, on: boolean): void =>
+    setSelected((s) => {
+      const n = new Set(s)
+      if (on) n.add(id)
+      else n.delete(id)
+      return n
+    })
+
   const selCls =
-    'no-drag h-8 rounded-md border border-line bg-bg px-2 text-[12px] text-ink-soft outline-none focus:border-brand/50'
+    'no-drag h-8 rounded-lg border border-line bg-bg px-2 text-[12px] text-ink-soft outline-none focus:border-brand/50'
 
   const renderRow = (mod: Mod): ReactNode => {
     const idx = installedOrder.indexOf(mod.id)
@@ -387,7 +478,10 @@ export function LibraryPage(): ReactNode {
         key={mod.id}
         mod={mod}
         locked={locked}
-        sortable={sort === 'order' && !query}
+        sortable={sort === 'order' && !query && cat === 'all'}
+        selectable={selectMode}
+        selected={selected.has(mod.id)}
+        onSelect={(v) => toggleSel(mod.id, v)}
         conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
         hasUpdate={updates.has(mod.id)}
         canMoveUp={idx > 0}
@@ -395,6 +489,15 @@ export function LibraryPage(): ReactNode {
       />
     )
   }
+
+  const catOptions = [
+    { value: 'all', label: t('library.filter.all'), count: mods.length },
+    ...CAT_ORDER.filter((c) => catCounts.has(c)).map((c) => ({
+      value: c,
+      label: t(`library.category.${c}`),
+      count: catCounts.get(c),
+    })),
+  ]
 
   return (
     <Page
@@ -432,14 +535,24 @@ export function LibraryPage(): ReactNode {
         />
       ) : (
         <>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[10rem] flex-1">
+          {catOptions.length > 2 && (
+            <Segmented
+              name="cat"
+              className="mb-2.5"
+              options={catOptions}
+              value={cat}
+              onChange={setCat}
+            />
+          )}
+
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[9rem] flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-faint" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('library.search')}
-                className="no-drag h-8 w-full rounded-md border border-line bg-bg pl-8 pr-2 text-[12.5px] outline-none placeholder:text-ink-faint focus:border-brand/50"
+                className="no-drag h-8 w-full rounded-lg border border-line bg-bg pl-8 pr-2 text-[12.5px] outline-none placeholder:text-ink-faint focus:border-brand/50"
               />
             </div>
             <select
@@ -456,8 +569,8 @@ export function LibraryPage(): ReactNode {
               <option value="type">{t('library.sort.type')}</option>
             </select>
             <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterKey)}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as FilterKey)}
               className={selCls}
             >
               <option value="all">{t('library.filter.all')}</option>
@@ -467,29 +580,34 @@ export function LibraryPage(): ReactNode {
             </select>
             <Button
               size="sm"
-              variant="outline"
-              loading={bulk}
-              disabled={locked || (installedCount === 0 && filter !== 'disabled')}
-              onClick={() => void setAll(installedCount === 0)}
+              variant={selectMode ? 'primary' : 'outline'}
+              onClick={() => {
+                setSelectMode((v) => !v)
+                if (selectMode) setSelected(new Set())
+              }}
             >
-              <Power className="size-3.5" />
-              {installedCount === 0 ? t('library.enableAll') : t('library.disableAll')}
+              <CheckSquare className="size-3.5" />
+              {t('library.select')}
             </Button>
           </div>
 
-          {sort !== 'order' && (
+          {sort !== 'order' && !selectMode && (
             <p className="mb-2 text-[11px] text-ink-faint">{t('library.orderHint')}</p>
           )}
 
           {visible.length === 0 ? (
-            <p className="py-10 text-center text-[13px] text-ink-faint">{t('library.noMatch')}</p>
+            <p className="py-12 text-center text-[13px] text-ink-faint">{t('library.noMatch')}</p>
           ) : groups ? (
-            <div className="space-y-4">
-              {groups.map(([cat, list]) => (
-                <div key={cat} className="space-y-2">
+            <div className="space-y-5">
+              {groups.map(([c, list]) => (
+                <div key={c} className="space-y-2">
                   <div className="flex items-center gap-2 px-1">
-                    <h3 className="text-[12px] font-semibold uppercase tracking-wide text-ink-soft">
-                      {t(`library.category.${cat}`)}
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: CAT_COLOR[c] }}
+                    />
+                    <h3 className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-soft">
+                      {t(`library.category.${c}`)}
                     </h3>
                     <span className="text-[11px] text-ink-faint">{list.length}</span>
                     <div className="h-px flex-1 bg-line" />
@@ -502,6 +620,95 @@ export function LibraryPage(): ReactNode {
             <div className="space-y-2">{visible.map((mod) => renderRow(mod))}</div>
           )}
         </>
+      )}
+
+      {/* Floating selection bar */}
+      <motion.div
+        initial={false}
+        animate={selCount > 0 ? { y: 0, opacity: 1 } : { y: 24, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+        className={cn(
+          'no-drag fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-2xl border border-line bg-bg-raised/95 px-2.5 py-2 shadow-pop backdrop-blur',
+          selCount === 0 && 'pointer-events-none',
+        )}
+      >
+        <span className="px-1.5 text-[12.5px] font-medium">
+          {tc('library.selected', selCount)}
+        </span>
+        <button
+          onClick={() =>
+            setSelected(allVisibleSelected ? new Set() : new Set([...selected, ...visibleIds]))
+          }
+          className="rounded-lg px-2 py-1 text-[12px] text-ink-faint hover:bg-bg-hover hover:text-ink"
+        >
+          {allVisibleSelected ? t('library.selectNone') : t('library.selectAll')}
+        </button>
+        <div className="mx-0.5 h-5 w-px bg-line" />
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={bulk}
+          disabled={locked}
+          onClick={() =>
+            void runBulk(() => window.api.mods.setEnabledMany([...selected], true)).then(() =>
+              setSelected(new Set()),
+            )
+          }
+        >
+          {t('library.enableSel')}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={bulk}
+          disabled={locked}
+          onClick={() =>
+            void runBulk(() => window.api.mods.setEnabledMany([...selected], false)).then(() =>
+              setSelected(new Set()),
+            )
+          }
+        >
+          {t('library.disableSel')}
+        </Button>
+        <Button
+          size="sm"
+          variant="danger"
+          loading={bulk}
+          disabled={locked}
+          onClick={() => {
+            if (!confirm(t('library.removeSelConfirm', { count: selCount }))) return
+            void runBulk(() => window.api.mods.removeMany([...selected])).then(() =>
+              setSelected(new Set()),
+            )
+          }}
+        >
+          <Trash2 className="size-3.5" />
+          {t('library.delete')}
+        </Button>
+        <button
+          onClick={() => {
+            setSelected(new Set())
+            setSelectMode(false)
+          }}
+          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-bg-hover hover:text-ink"
+        >
+          <X className="size-4" />
+        </button>
+      </motion.div>
+
+      {installedCount > 0 && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            size="sm"
+            variant="ghost"
+            loading={bulk}
+            disabled={locked}
+            onClick={() => void runBulk(() => window.api.mods.setAllEnabled(false))}
+          >
+            <Power className="size-3.5" />
+            {t('library.disableAll')}
+          </Button>
+        </div>
       )}
     </Page>
   )

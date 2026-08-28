@@ -24,7 +24,9 @@ export const IPC = {
   modsUninstall: 'mods:uninstall',
   modsSetEnabled: 'mods:setEnabled',
   modsSetAllEnabled: 'mods:setAllEnabled',
+  modsSetEnabledMany: 'mods:setEnabledMany',
   modsRemove: 'mods:remove',
+  modsRemoveMany: 'mods:removeMany',
   modsReorder: 'mods:reorder',
   modsOpenFolder: 'mods:openFolder',
   modsMove: 'mods:move', // shift load order up/down

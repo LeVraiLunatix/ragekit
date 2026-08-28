@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -17,21 +19,32 @@ body {
   background: theme('colors.bg.DEFAULT');
   color: theme('colors.ink.DEFAULT');
   font-family: theme('fontFamily.sans');
+  font-feature-settings: 'cv05', 'cv08', 'ss03';
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
 }
 
+h1,
+h2,
+h3 {
+  letter-spacing: -0.014em;
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a3142;
+  background: #262b36;
   border-radius: 6px;
   border: 2px solid theme('colors.bg.DEFAULT');
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4255;
+  background: #333a49;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .drag-region {
@@ -39,4 +52,12 @@ body {
 }
 .no-drag {
   -webkit-app-region: no-drag;
+}
+
+/* Reduced-motion: kill transforms/animations the framer-motion fallbacks add */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { I18nProvider, useI18n } from '@/i18n'
@@ -41,14 +42,21 @@ function Shell(): ReactNode {
         <Sidebar />
         <main className="min-h-0 flex-1 overflow-y-auto">
           <ErrorBoundary resetKey={route}>
-            {route === 'library' && <LibraryPage />}
-            {route === 'add' && <AddModsPage />}
-            {route === 'profiles' && <ProfilesPage />}
-            {route === 'launch' && <LaunchPage />}
-            {route === 'archives' && <ArchivesPage />}
-            {route === 'dependencies' && <DependenciesPage />}
-            {route === 'diagnostics' && <DiagnosticsPage />}
-            {route === 'settings' && <SettingsPage />}
+            <motion.div
+              key={route}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+            >
+              {route === 'library' && <LibraryPage />}
+              {route === 'add' && <AddModsPage />}
+              {route === 'profiles' && <ProfilesPage />}
+              {route === 'launch' && <LaunchPage />}
+              {route === 'archives' && <ArchivesPage />}
+              {route === 'dependencies' && <DependenciesPage />}
+              {route === 'diagnostics' && <DiagnosticsPage />}
+              {route === 'settings' && <SettingsPage />}
+            </motion.div>
           </ErrorBoundary>
         </main>
       </div>

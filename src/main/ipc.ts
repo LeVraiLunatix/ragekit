@@ -13,6 +13,8 @@ import {
   uninstallMod,
   setEnabled,
   setAllEnabled,
+  setEnabledMany,
+  removeMany,
   removeMod,
   reorder,
   moveMod,
@@ -161,6 +163,17 @@ export function registerIpc(): void {
     const mods = await guardGameWrite(() => setAllEnabled(enabled))
     broadcast(IPC.evtModsChanged, null)
     return mods
+  })
+
+  ipcMain.handle(IPC.modsSetEnabledMany, async (_e, ids: string[], enabled: boolean) => {
+    const mods = await guardGameWrite(() => setEnabledMany(ids, enabled))
+    broadcast(IPC.evtModsChanged, null)
+    return mods
+  })
+
+  ipcMain.handle(IPC.modsRemoveMany, async (_e, ids: string[]) => {
+    await guardGameWrite(() => removeMany(ids))
+    broadcast(IPC.evtModsChanged, null)
   })
 
   ipcMain.handle(IPC.modsRemove, async (_e, modId: string) => {

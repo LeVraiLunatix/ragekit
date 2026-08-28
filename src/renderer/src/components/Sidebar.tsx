@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import {
   Boxes,
   PlusCircle,
@@ -15,14 +16,14 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 const ITEMS: Array<{ id: Route; key: string; icon: ReactNode }> = [
-  { id: 'library', key: 'nav.library', icon: <Boxes className="size-4" /> },
-  { id: 'add', key: 'nav.add', icon: <PlusCircle className="size-4" /> },
-  { id: 'profiles', key: 'nav.profiles', icon: <Layers className="size-4" /> },
-  { id: 'launch', key: 'nav.launch', icon: <Rocket className="size-4" /> },
-  { id: 'archives', key: 'nav.archives', icon: <Archive className="size-4" /> },
-  { id: 'dependencies', key: 'nav.dependencies', icon: <Puzzle className="size-4" /> },
-  { id: 'diagnostics', key: 'nav.diagnostics', icon: <Stethoscope className="size-4" /> },
-  { id: 'settings', key: 'nav.settings', icon: <Settings className="size-4" /> },
+  { id: 'library', key: 'nav.library', icon: <Boxes className="size-[17px]" /> },
+  { id: 'add', key: 'nav.add', icon: <PlusCircle className="size-[17px]" /> },
+  { id: 'profiles', key: 'nav.profiles', icon: <Layers className="size-[17px]" /> },
+  { id: 'launch', key: 'nav.launch', icon: <Rocket className="size-[17px]" /> },
+  { id: 'archives', key: 'nav.archives', icon: <Archive className="size-[17px]" /> },
+  { id: 'dependencies', key: 'nav.dependencies', icon: <Puzzle className="size-[17px]" /> },
+  { id: 'diagnostics', key: 'nav.diagnostics', icon: <Stethoscope className="size-[17px]" /> },
+  { id: 'settings', key: 'nav.settings', icon: <Settings className="size-[17px]" /> },
 ]
 
 export function Sidebar(): ReactNode {
@@ -31,27 +32,35 @@ export function Sidebar(): ReactNode {
   const installed = mods.filter((m) => m.status === 'installed').length
 
   return (
-    <nav className="flex w-52 shrink-0 flex-col gap-1 border-r border-line bg-bg-raised p-3">
-      {ITEMS.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => setRoute(item.id)}
-          className={cn(
-            'no-drag flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors',
-            route === item.id
-              ? 'bg-bg-hover text-ink'
-              : 'text-ink-soft hover:bg-bg-hover/60 hover:text-ink',
-          )}
-        >
-          {item.icon}
-          {t(item.key)}
-          {item.id === 'library' && mods.length > 0 && (
-            <span className="ml-auto text-[11px] text-ink-faint">
-              {installed}/{mods.length}
-            </span>
-          )}
-        </button>
-      ))}
+    <nav className="flex w-[212px] shrink-0 flex-col gap-0.5 border-r border-line bg-bg-raised p-3">
+      {ITEMS.map((item) => {
+        const active = route === item.id
+        return (
+          <button
+            key={item.id}
+            onClick={() => setRoute(item.id)}
+            className={cn(
+              'no-drag relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-150',
+              active ? 'text-ink' : 'text-ink-faint hover:text-ink',
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId="nav-active"
+                transition={{ type: 'spring', stiffness: 520, damping: 40 }}
+                className="absolute inset-0 -z-10 rounded-lg border border-line bg-bg-hover"
+              />
+            )}
+            <span className={active ? 'text-brand' : ''}>{item.icon}</span>
+            {t(item.key)}
+            {item.id === 'library' && mods.length > 0 && (
+              <span className="ml-auto text-[11px] tabular-nums text-ink-faint">
+                {installed}/{mods.length}
+              </span>
+            )}
+          </button>
+        )
+      })}
 
       <div className="flex-1" />
 

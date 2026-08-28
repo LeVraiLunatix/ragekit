@@ -358,6 +358,30 @@ export async function setEnabled(modId: string, enabled: boolean): Promise<Mod> 
   return mod
 }
 
+/** Enable/disable a specific set of mods. */
+export async function setEnabledMany(ids: string[], enabled: boolean): Promise<Mod[]> {
+  const order = new Map(getMods().map((m, i) => [m.id, i]))
+  for (const id of [...ids].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0))) {
+    try {
+      await setEnabled(id, enabled)
+    } catch {
+      /* skip a bad one */
+    }
+  }
+  return listMods()
+}
+
+/** Delete a specific set of mods (restoring any files they replaced). */
+export async function removeMany(ids: string[]): Promise<void> {
+  for (const id of ids) {
+    try {
+      await removeMod(id)
+    } catch {
+      /* skip */
+    }
+  }
+}
+
 /** Enable or disable every managed mod in one go (for bisecting a crash). */
 export async function setAllEnabled(enabled: boolean): Promise<Mod[]> {
   const targets = getMods()

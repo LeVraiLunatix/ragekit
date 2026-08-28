@@ -58,7 +58,10 @@ const api = {
       ipcRenderer.invoke(IPC.modsSetEnabled, modId, enabled),
     setAllEnabled: (enabled: boolean): Promise<Mod[]> =>
       ipcRenderer.invoke(IPC.modsSetAllEnabled, enabled),
+    setEnabledMany: (ids: string[], enabled: boolean): Promise<Mod[]> =>
+      ipcRenderer.invoke(IPC.modsSetEnabledMany, ids, enabled),
     remove: (modId: string): Promise<void> => ipcRenderer.invoke(IPC.modsRemove, modId),
+    removeMany: (ids: string[]): Promise<void> => ipcRenderer.invoke(IPC.modsRemoveMany, ids),
     reorder: (modId: string, loadOrder: number): Promise<Mod> =>
       ipcRenderer.invoke(IPC.modsReorder, modId, loadOrder),
     openFolder: (modId: string): Promise<void> => ipcRenderer.invoke(IPC.modsOpenFolder, modId),

@@ -1,5 +1,6 @@
 import { type ButtonHTMLAttributes, type ReactNode, forwardRef } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 type Variant = 'primary' | 'ghost' | 'outline' | 'danger'
@@ -13,14 +14,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-brand text-black font-medium hover:bg-brand-hi disabled:bg-brand-dim disabled:text-ink-faint',
+    'bg-brand text-black font-semibold hover:bg-brand-hi disabled:bg-brand-dim disabled:text-ink-faint shadow-[0_1px_0_rgba(255,255,255,0.2)_inset]',
   ghost: 'text-ink-soft hover:text-ink hover:bg-bg-hover',
-  outline: 'border border-line text-ink-soft hover:text-ink hover:border-ink-faint bg-transparent',
-  danger: 'bg-bad/15 text-bad hover:bg-bad/25 border border-bad/30',
+  outline:
+    'border border-line text-ink-soft hover:text-ink hover:border-ink-faint/60 hover:bg-bg-hover/50 bg-transparent',
+  danger: 'bg-bad/12 text-bad hover:bg-bad/20 border border-bad/25',
 }
 
 const SIZES: Record<Size, string> = {
-  sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-md',
+  sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-lg',
   md: 'h-9 px-4 text-sm gap-2 rounded-lg',
 }
 
@@ -33,8 +35,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'no-drag inline-flex items-center justify-center whitespace-nowrap transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 disabled:cursor-not-allowed',
+        'no-drag inline-flex select-none items-center justify-center whitespace-nowrap transition-all duration-150 ease-smooth active:scale-[0.97]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:active:scale-100',
         VARIANTS[variant],
         SIZES[size],
         className,
@@ -61,7 +63,7 @@ export function Card({
       onClick={onClick}
       className={cn(
         'rounded-xl border border-line bg-bg-card shadow-card',
-        onClick && 'cursor-pointer hover:border-ink-faint/60 transition-colors',
+        onClick && 'cursor-pointer transition-colors hover:border-ink-faint/50',
         className,
       )}
     >
@@ -83,7 +85,7 @@ export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: R
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide',
+        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide',
         TONES[tone],
       )}
     >
@@ -103,22 +105,106 @@ export function Toggle({
 }): ReactNode {
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'no-drag relative h-5 w-9 shrink-0 rounded-full border transition-colors disabled:opacity-40',
-        checked ? 'bg-brand border-brand' : 'bg-bg-hover border-line',
+        'no-drag relative h-[22px] w-[38px] shrink-0 rounded-full border transition-colors duration-200 ease-smooth disabled:opacity-40',
+        checked ? 'border-brand bg-brand' : 'border-line bg-bg-hover',
       )}
     >
-      <span
+      <motion.span
+        layout
+        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
         className={cn(
-          'absolute top-1/2 size-3.5 -translate-y-1/2 rounded-full bg-black transition-all',
-          checked ? 'left-[18px]' : 'left-[3px] bg-ink-faint',
+          'absolute top-1/2 size-4 -translate-y-1/2 rounded-full shadow-sm',
+          checked ? 'left-[18px] bg-black' : 'left-[3px] bg-ink-faint',
         )}
       />
     </button>
+  )
+}
+
+export function Checkbox({
+  checked,
+  onChange,
+  className,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  className?: string
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={(e) => {
+        e.stopPropagation()
+        onChange(!checked)
+      }}
+      className={cn(
+        'no-drag grid size-[18px] shrink-0 place-items-center rounded-[6px] border transition-colors duration-150',
+        checked ? 'border-brand bg-brand text-black' : 'border-line bg-bg hover:border-ink-faint',
+        className,
+      )}
+    >
+      {checked && <Check className="size-3" strokeWidth={3.5} />}
+    </button>
+  )
+}
+
+export interface SegOption {
+  value: string
+  label: ReactNode
+  count?: number
+}
+
+export function Segmented({
+  options,
+  value,
+  onChange,
+  className,
+  name = 'seg',
+}: {
+  options: SegOption[]
+  value: string
+  onChange: (v: string) => void
+  className?: string
+  name?: string
+}): ReactNode {
+  return (
+    <div className={cn('no-drag flex flex-wrap gap-1', className)}>
+      {options.map((o) => {
+        const active = o.value === value
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              'relative rounded-full px-3 py-1 text-[12px] font-medium transition-colors duration-150',
+              active ? 'text-ink' : 'text-ink-faint hover:text-ink-soft',
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId={`${name}-active`}
+                transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                className="absolute inset-0 -z-10 rounded-full border border-line bg-bg-hover"
+              />
+            )}
+            {o.label}
+            {o.count != null && (
+              <span className={cn('ml-1.5 text-[10.5px]', active ? 'text-ink-faint' : 'text-ink-faint/60')}>
+                {o.count}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -138,11 +224,11 @@ export function EmptyState({
   action?: ReactNode
 }): ReactNode {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line py-16 text-center">
       <div className="mb-3 text-ink-faint">{icon}</div>
       <p className="text-sm font-medium text-ink">{title}</p>
-      {hint && <p className="mt-1 max-w-sm text-[13px] text-ink-faint">{hint}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      {hint && <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-ink-faint">{hint}</p>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   )
 }
