@@ -256,39 +256,38 @@ export async function applyOivPackage(
       logLine(`Archive ${archiveRel}: ${ops.length} change(s)`)
       bump(4, `Opening ${archiveRel}…`)
       try {
-        // The archive must live in mods/. If it doesn't, pull the vanilla copy
-        // from the game folder.
-        if (!(await pathExists(archiveFs))) {
-          const vanilla = join(gamePath, archiveRel)
-          if (!(await pathExists(vanilla))) {
-            for (const op of ops) push(op, 'skipped', `${archiveRel} not found in the game folder`)
-            step(40)
-            continue
-          }
-          logLine(`  copying ${archiveRel} into mods…`)
-          bump(10, `Copying ${archiveRel} into mods…`)
-          await copyFile(vanilla, archiveFs)
-        }
         if (aesKey === undefined) aesKey = await loadAesKey(gamePath).catch(() => null)
         if (ngKeys === undefined) ngKeys = await loadNgKeys(gamePath).catch(() => null)
+        const keys: RpfKeys = { aes: aesKey ?? null, ng: ngKeys ?? null }
+
+        const inMods = await pathExists(archiveFs)
+        const vanilla = join(gamePath, archiveRel)
+        // Open the mods copy if it exists, else the vanilla one in the game folder.
+        let openFrom = inMods ? archiveFs : vanilla
+        if (!inMods && !(await pathExists(vanilla))) {
+          for (const op of ops) push(op, 'skipped', `${archiveRel} not found in the game folder`)
+          step(40)
+          continue
+        }
 
         let rpf: Rpf7
         try {
-          rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys ?? null })
+          rpf = await Rpf7.open(openFrom, keys)
         } catch (err) {
           for (const op of ops) push(op, 'skipped', err instanceof Error ? err.message : String(err))
           step(40)
           continue
         }
 
-        // NG (vanilla) archive → decrypt it to OPEN once, in place, then reopen.
         if (rpf.encryption === 'NG') {
+          // NG vanilla archive → decrypt straight into mods/ (no separate copy).
+          // The untouched game folder file IS the backup.
           if (!ngKeys) {
             for (const op of ops) push(op, 'skipped', `${archiveRel} is NG-encrypted and NG keys aren't loaded (Settings › NG keys)`)
             step(40)
             continue
           }
-          await backup(archiveFs)
+          if (inMods) await backup(archiveFs)
           logLine(`  decrypting ${archiveRel} to an editable copy (one-time)…`)
           const convBase = unitsDone
           await rpf.convertToOpen(archiveFs, (d, t) => {
@@ -299,10 +298,16 @@ export async function applyOivPackage(
             })
           })
           step(24)
-          rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys })
+          rpf = await Rpf7.open(archiveFs, keys)
+        } else if (!inMods) {
+          // Editable (OPEN/AES) vanilla archive → a plain copy into mods/ is enough.
+          logLine(`  copying ${archiveRel} into mods…`)
+          bump(10, `Copying ${archiveRel} into mods…`)
+          await copyFile(vanilla, archiveFs)
+          rpf = await Rpf7.open(archiveFs, keys)
         }
+        openFrom = archiveFs
 
-        const keys: RpfKeys = { aes: aesKey ?? null, ng: ngKeys ?? null }
         const mutations: RpfMutation[] = []
         const staged: { op: OivOp; path: string }[] = []
         let touchesResource = false
