@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
   PackageOpen,
@@ -16,6 +16,7 @@ import {
   Upload,
   Loader2,
   Boxes,
+  Terminal,
 } from 'lucide-react'
 import type {
   OivContentOp,
@@ -142,7 +143,14 @@ export function OivInstallDialog(): ReactNode {
   const [err, setErr] = useState('')
   const [target, setTarget] = useState<OivTarget>('mods')
   const [progress, setProgress] = useState<number | null>(null)
+  const [stepLabel, setStepLabel] = useState('')
+  const [log, setLog] = useState<string[]>([])
   const [report, setReport] = useState<OivInstallReport | null>(null)
+  const logRef = useRef<HTMLPreElement>(null)
+
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [log])
 
   useEffect(() => {
     if (!path) return
@@ -151,6 +159,8 @@ export function OivInstallDialog(): ReactNode {
     setInfo(null)
     setReport(null)
     setProgress(null)
+    setStepLabel('')
+    setLog([])
     setErr('')
     window.api.oiv
       .inspect(path)
@@ -174,7 +184,10 @@ export function OivInstallDialog(): ReactNode {
   useEffect(() => {
     if (!path) return
     return window.api.on.taskProgress((p) => {
-      if (p.taskId === `oiv:${path}`) setProgress(p.done ? 1 : p.progress)
+      if (p.taskId !== `oiv:${path}`) return
+      setProgress(p.done ? 1 : p.progress)
+      if (p.label) setStepLabel(p.label)
+      if (p.log) setLog((prev) => (prev.length > 400 ? [...prev.slice(-400), p.log!] : [...prev, p.log!]))
     })
   }, [path])
 
@@ -347,6 +360,21 @@ export function OivInstallDialog(): ReactNode {
                 )}
               </div>
 
+              {/* Live install log */}
+              {(phase === 'installing' || phase === 'done') && log.length > 0 && (
+                <div>
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                    <Terminal className="size-3.5" /> {t('oiv.log')}
+                  </p>
+                  <pre
+                    ref={logRef}
+                    className="max-h-44 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-line bg-bg p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-faint"
+                  >
+                    {log.join('\n')}
+                  </pre>
+                </div>
+              )}
+
               {/* Result */}
               {phase === 'done' && report && (
                 <div className="rounded-xl border border-line bg-bg p-3">
@@ -391,15 +419,22 @@ export function OivInstallDialog(): ReactNode {
         {/* Footer */}
         <div className="flex items-center gap-3 border-t border-line p-3">
           {phase === 'installing' ? (
-            <div className="flex flex-1 items-center gap-2.5">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-hover">
-                <motion.div
-                  className="h-full rounded-full bg-brand"
-                  animate={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
-                  transition={{ ease: 'easeOut', duration: 0.3 }}
-                />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-hover">
+                  <motion.div
+                    className="h-full rounded-full bg-brand"
+                    animate={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
+                    transition={{ ease: 'easeOut', duration: 0.3 }}
+                  />
+                </div>
+                <span className="shrink-0 text-[12px] tabular-nums text-ink-faint">
+                  {progress != null ? `${Math.round(progress * 100)}%` : ''}
+                </span>
               </div>
-              <span className="text-[12px] text-ink-faint">{t('oiv.installing')}</span>
+              <p className="mt-1 truncate text-[11px] text-ink-faint">
+                {stepLabel || t('oiv.installing')}
+              </p>
             </div>
           ) : (
             <div className="flex-1 text-[12px] text-ink-faint">

@@ -304,13 +304,16 @@ export function registerIpc(): void {
 
   ipcMain.handle(IPC.oivInstall, async (_e, arg: { path: string; target: 'game' | 'mods' }) => {
     const taskId = `oiv:${arg.path}`
+    let lastLabel = 'OIV package'
     const { mod, report } = await guardGameWrite(() =>
-      installOiv(arg.path, arg.target, (done, total, label) => {
+      installOiv(arg.path, arg.target, (r) => {
+        if (r.label != null) lastLabel = r.label || lastLabel
         broadcast(IPC.evtTaskProgress, {
           taskId,
-          label: label || 'OIV package',
-          progress: total ? done / total : null,
+          label: lastLabel,
+          progress: r.progress ?? null,
           done: false,
+          log: r.log,
         })
       }),
     )

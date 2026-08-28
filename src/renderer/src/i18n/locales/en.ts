@@ -313,6 +313,7 @@ export const en = {
     installing: 'Installing…',
     close: 'Close',
     openInLibrary: 'Show in Library',
+    log: 'Install log',
     resultTitle: 'Install finished',
     resultApplied: '{applied} applied',
     resultSkipped: '{skipped} skipped',

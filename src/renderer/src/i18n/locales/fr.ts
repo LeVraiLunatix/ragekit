@@ -319,6 +319,7 @@ export const fr: Dict = {
     installing: 'Installation…',
     close: 'Fermer',
     openInLibrary: 'Voir dans la bibliothèque',
+    log: 'Journal d’installation',
     resultTitle: 'Installation terminée',
     resultApplied: '{applied} appliquées',
     resultSkipped: '{skipped} ignorées',

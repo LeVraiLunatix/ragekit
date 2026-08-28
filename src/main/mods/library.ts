@@ -8,6 +8,7 @@ import type {
   Mod,
   ModKind,
   OivInstallReport,
+  OivProgress,
   OivTarget,
   PlannedFile,
 } from '@shared/types'
@@ -183,7 +184,7 @@ export async function importFromPaths(paths: string[]): Promise<ImportResult[]> 
 export async function installOiv(
   oivPath: string,
   target: OivTarget,
-  onProgress?: (done: number, total: number, label: string) => void,
+  report?: (r: OivProgress) => void,
 ): Promise<{ mod: Mod; report: OivInstallReport }> {
   const gamePath = requireGamePath()
   const id = randomUUID()
@@ -192,13 +193,17 @@ export async function installOiv(
   await ensureDir(sourceDir)
 
   const stored = join(modDir, 'package.oiv')
+  report?.({ log: 'Copying the package into the library…' })
   await copyFile(oivPath, stored)
 
   let meta: { name: string; author?: string; version?: string; description?: string }
   try {
     meta = await withOivZip(stored, async (z) => {
       const pkg = await parseOivPackage(z)
-      await stageOivLooseFiles(z, pkg.looseOps, sourceDir).catch(() => [])
+      // Stage only lightweight assets for category detection — never the big
+      // .rpf / .awc payloads (those go straight to the game folder on apply).
+      const light = pkg.looseOps.filter((o) => !/\.(rpf|awc|ytd|yft|ydr|ydd)$/i.test(o.target))
+      await stageOivLooseFiles(z, light, sourceDir).catch(() => [])
       return {
         name: pkg.metadata.name,
         author: pkg.metadata.author,
@@ -216,10 +221,10 @@ export async function installOiv(
     target,
     gamePath,
     join(backupsDir(), id),
-    onProgress,
+    report,
   )
 
-  const report: OivInstallReport = {
+  const installReport: OivInstallReport = {
     target,
     applied: results.filter((r) => r.status === 'applied').length,
     skipped: results.filter((r) => r.status === 'skipped').length,
@@ -247,7 +252,7 @@ export async function installOiv(
   const mods = getMods()
   mods.push(mod)
   saveMods(mods)
-  return { mod, report }
+  return { mod, report: installReport }
 }
 
 // ---------------------------------------------------------------------------
@@ -378,7 +383,7 @@ export async function installMod(
       mod.oivTarget ?? 'game',
       gamePath,
       join(backupsDir(), modId),
-      onProgress,
+      (r) => onProgress?.(r.progress != null ? Math.round(r.progress * 100) : 0, 100, r.label ?? ''),
     )
     return updateMod(modId, { status: 'installed', installedFiles: written })
   }

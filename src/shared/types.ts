@@ -182,6 +182,16 @@ export interface OivInstallReport {
   results: OivOpResult[]
 }
 
+/** Live install feedback streamed while an .oiv is being applied. */
+export interface OivProgress {
+  /** 0..1 overall, or null for indeterminate. */
+  progress?: number | null
+  /** Short current-step label for the progress bar. */
+  label?: string
+  /** A line to append to the install log. */
+  log?: string
+}
+
 export interface Profile {
   id: string
   name: string
@@ -448,4 +458,6 @@ export interface TaskProgress {
   progress: number | null
   done: boolean
   error?: string
+  /** Optional line to append to a live log for this task. */
+  log?: string
 }

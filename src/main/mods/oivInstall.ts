@@ -1,6 +1,6 @@
 import { join, relative, dirname, basename, sep } from 'node:path'
 import { promises as fsp } from 'node:fs'
-import type { OivOpResult, OivTarget } from '@shared/types'
+import type { OivOpResult, OivProgress, OivTarget } from '@shared/types'
 import { parseOivPackage, oivBaseDir, type OivOp } from './oiv'
 import { applyTextEdits, applyXmlEdits } from './oivXmlEdit'
 import { withOivZip, type OivZip } from './oivZip'
@@ -110,7 +110,7 @@ export async function applyOivPackage(
   target: OivTarget,
   gamePath: string,
   backupDir: string,
-  onProgress?: (done: number, total: number, label: string) => void,
+  report?: (r: OivProgress) => void,
 ): Promise<OivApplyResult> {
   return withOivZip(storedOivPath, async (zip) => {
     const pkg = await parseOivPackage(zip)
@@ -118,8 +118,27 @@ export async function applyOivPackage(
     const results: OivOpResult[] = []
     const written = new Set<string>()
 
-    const total = pkg.ops.length
-    let done = 0
+    // Loose ops count 1 unit each; every archive group is much heavier.
+    const looseCount = pkg.ops.filter((o) => o.archiveChain.length === 0).length
+    const archiveKeys = new Set(
+      pkg.ops.filter((o) => o.archiveChain.length > 0).map((o) => o.archiveChain[0]),
+    )
+    const unitsTotal = Math.max(looseCount + archiveKeys.size * 40, 1)
+    let unitsDone = 0
+    const bump = (n: number, label?: string): void =>
+      report?.({ progress: Math.min(unitsDone + n, unitsTotal) / unitsTotal, label })
+    const step = (n: number, label?: string): void => {
+      unitsDone = Math.min(unitsDone + n, unitsTotal)
+      report?.({ progress: unitsDone / unitsTotal, label })
+    }
+    const logLine = (line: string): void => report?.({ log: line })
+
+    const ICON: Record<OivOpResult['status'], string> = { applied: '✓', skipped: '·', failed: '✗' }
+    const record = (r: OivOpResult): void => {
+      results.push(r)
+      const where = r.archive ? `${r.archive} › ` : ''
+      logLine(`${ICON[r.status]} ${where}${r.target}${r.detail ? ` — ${r.detail}` : ''}`)
+    }
 
     const backup = async (absPath: string): Promise<void> => {
       const rel = slash(relative(gamePath, absPath))
@@ -130,20 +149,21 @@ export async function applyOivPackage(
     /** archive path relative to base (chain[0]) -> the ops targeting it */
     const archiveGroups = new Map<string, OivOp[]>()
 
+    logLine(`Applying ${pkg.ops.length} operation(s) to the ${target === 'mods' ? 'mods' : 'game'} folder…`)
     for (const op of pkg.ops) {
       const archive = op.archiveChain.join('/')
-      onProgress?.(done, total, op.target)
-      done++
+      if (op.archiveChain.length === 0) step(1, op.target)
+      else bump(0, op.target)
       try {
         // ── in-place XML/text edit ─────────────────────────────────────────
         if (op.kind === 'xml-edit') {
           if (!(op.textEdits?.length || op.xmlEdits?.length)) {
-            results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'no edit operations found' })
+            record({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'no edit operations found' })
             continue
           }
           if (archive) {
             if (target !== 'mods') {
-              results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'install to the mods folder to edit files inside a .rpf' })
+              record({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'install to the mods folder to edit files inside a .rpf' })
               continue
             }
             const list = archiveGroups.get(op.archiveChain[0]) ?? []
@@ -156,19 +176,19 @@ export async function applyOivPackage(
           let text = ''
           if (await pathExists(dest)) text = await fsp.readFile(dest, 'utf8')
           else if (!op.createIfMissing) {
-            results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'target file not found' })
+            record({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'target file not found' })
             continue
           }
           const edited = applyEdits(op, text)
           if (edited == null) {
-            results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'edits did not match anything' })
+            record({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'edits did not match anything' })
             continue
           }
           await backup(dest).catch(() => {})
           await ensureDir(dirname(dest))
           await fsp.writeFile(dest, edited, 'utf8')
           written.add(slash(relative(gamePath, dest)))
-          results.push({ target: op.target, archive, kind: 'xml-edit', status: 'applied' })
+          record({ target: op.target, archive, kind: 'xml-edit', status: 'applied' })
           continue
         }
 
@@ -181,14 +201,14 @@ export async function applyOivPackage(
               await backup(dest)
               await removeFileAndPrune(dest, gamePath)
               written.add(rel)
-              results.push({ target: op.target, archive, kind: 'delete', status: 'applied' })
+              record({ target: op.target, archive, kind: 'delete', status: 'applied' })
             } else {
-              results.push({ target: op.target, archive, kind: 'delete', status: 'skipped', detail: 'already absent' })
+              record({ target: op.target, archive, kind: 'delete', status: 'skipped', detail: 'already absent' })
             }
             continue
           }
           if (!op.source || !zip.has(op.source)) {
-            results.push({ target: op.target, archive, kind: 'add', status: 'failed', detail: 'source missing in package' })
+            record({ target: op.target, archive, kind: 'add', status: 'failed', detail: 'source missing in package' })
             continue
           }
           const overwrite = await pathExists(dest)
@@ -196,18 +216,18 @@ export async function applyOivPackage(
           await ensureDir(dirname(dest))
           const ok = await zip.toFile(op.source, dest)
           if (!ok) {
-            results.push({ target: op.target, archive, kind: 'add', status: 'failed', detail: 'could not extract source' })
+            record({ target: op.target, archive, kind: 'add', status: 'failed', detail: 'could not extract source' })
             continue
           }
           written.add(rel)
-          results.push({ target: op.target, archive, kind: overwrite ? 'replace' : 'add', status: 'applied' })
+          record({ target: op.target, archive, kind: overwrite ? 'replace' : 'add', status: 'applied' })
           continue
         }
 
         // ── operation inside a .rpf archive — collect, apply in a batch below ─
         const kind = op.kind === 'add' ? 'replace' : 'delete'
         const skip = (detail: string): void => {
-          results.push({ target: op.target, archive, kind, status: 'skipped', detail })
+          record({ target: op.target, archive, kind, status: 'skipped', detail })
         }
         if (target !== 'mods') { skip('install to the mods folder to apply archive changes'); continue }
         if (op.kind === 'delete') { skip(`deletes inside ${archive} — not supported yet`); continue }
@@ -215,7 +235,7 @@ export async function applyOivPackage(
         list.push(op)
         archiveGroups.set(op.archiveChain[0], list)
       } catch (err) {
-        results.push({
+        record({
           target: op.target,
           archive,
           kind: (op.kind === 'add' ? (archive ? 'replace' : 'add') : op.kind) as OivOpResult['kind'],
@@ -231,18 +251,22 @@ export async function applyOivPackage(
     for (const [archiveRel, ops] of archiveGroups) {
       const archiveFs = join(base, archiveRel)
       const push = (op: OivOp, status: OivOpResult['status'], detail?: string): void => {
-        results.push({ target: op.target, archive: op.archiveChain.join('/'), kind: op.kind === 'xml-edit' ? 'xml-edit' : 'replace', status, detail })
+        record({ target: op.target, archive: op.archiveChain.join('/'), kind: op.kind === 'xml-edit' ? 'xml-edit' : 'replace', status, detail })
       }
+      logLine(`Archive ${archiveRel}: ${ops.length} change(s)`)
+      bump(4, `Opening ${archiveRel}…`)
       try {
         // The archive must live in mods/. If it doesn't, pull the vanilla copy
-        // from the game folder (what you'd otherwise do by hand in OpenIV).
+        // from the game folder.
         if (!(await pathExists(archiveFs))) {
           const vanilla = join(gamePath, archiveRel)
           if (!(await pathExists(vanilla))) {
             for (const op of ops) push(op, 'skipped', `${archiveRel} not found in the game folder`)
+            step(40)
             continue
           }
-          onProgress?.(total, total, `Copying ${archiveRel} into mods…`)
+          logLine(`  copying ${archiveRel} into mods…`)
+          bump(10, `Copying ${archiveRel} into mods…`)
           await copyFile(vanilla, archiveFs)
         }
         if (aesKey === undefined) aesKey = await loadAesKey(gamePath).catch(() => null)
@@ -253,6 +277,7 @@ export async function applyOivPackage(
           rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys ?? null })
         } catch (err) {
           for (const op of ops) push(op, 'skipped', err instanceof Error ? err.message : String(err))
+          step(40)
           continue
         }
 
@@ -260,13 +285,20 @@ export async function applyOivPackage(
         if (rpf.encryption === 'NG') {
           if (!ngKeys) {
             for (const op of ops) push(op, 'skipped', `${archiveRel} is NG-encrypted and NG keys aren't loaded (Settings › NG keys)`)
+            step(40)
             continue
           }
           await backup(archiveFs)
-          onProgress?.(total, total, `Converting ${archiveRel} to an editable copy…`)
-          await rpf.convertToOpen(archiveFs, (d, t) =>
-            onProgress?.(total, total, `Converting ${archiveRel} — ${Math.round((d / Math.max(t, 1)) * 100)}%`),
-          )
+          logLine(`  decrypting ${archiveRel} to an editable copy (one-time)…`)
+          const convBase = unitsDone
+          await rpf.convertToOpen(archiveFs, (d, t) => {
+            const frac = d / Math.max(t, 1)
+            report?.({
+              progress: Math.min(convBase + 24 * frac, unitsTotal) / unitsTotal,
+              label: `Converting ${archiveRel} — ${Math.round(frac * 100)}%`,
+            })
+          })
+          step(24)
           rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys })
         }
 
@@ -341,9 +373,14 @@ export async function applyOivPackage(
           mutations.push({ op: inner ? 'replace' : 'add', path, content: buf })
           staged.push({ op, path })
         }
-        if (mutations.length === 0) continue
+        if (mutations.length === 0) {
+          step(40)
+          continue
+        }
 
         await backup(archiveFs)
+        logLine(`  rebuilding ${archiveRel} (${mutations.length} change(s))…`)
+        bump(12, `Rebuilding ${archiveRel}…`)
         const needsTree = touchesResource || touchesNested || mutations.some((m) => m.op === 'add')
         const done2 = new Set<string>()
         if (needsTree) {
@@ -358,12 +395,18 @@ export async function applyOivPackage(
         for (const s of staged) {
           push(s.op, done2.has(s.path) ? 'applied' : 'failed', done2.has(s.path) ? undefined : 'archive rebuild did not include this file')
         }
+        step(40)
       } catch (err) {
         for (const op of ops) push(op, 'failed', err instanceof Error ? err.message : String(err))
+        step(40)
       }
     }
 
-    onProgress?.(total, total, '')
+    const applied = results.filter((r) => r.status === 'applied').length
+    const skipped = results.filter((r) => r.status === 'skipped').length
+    const failed = results.filter((r) => r.status === 'failed').length
+    logLine(`Done — ${applied} applied, ${skipped} skipped, ${failed} failed.`)
+    report?.({ progress: 1, label: '' })
     return { results, written: [...written] }
   })
 }

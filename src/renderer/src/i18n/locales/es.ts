@@ -315,6 +315,7 @@ export const es: Dict = {
     installing: 'Instalando…',
     close: 'Cerrar',
     openInLibrary: 'Ver en la biblioteca',
+    log: 'Registro de instalación',
     resultTitle: 'Instalación finalizada',
     resultApplied: '{applied} aplicadas',
     resultSkipped: '{skipped} omitidas',

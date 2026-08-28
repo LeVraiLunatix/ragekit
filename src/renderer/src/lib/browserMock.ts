@@ -17,6 +17,8 @@ if (typeof window !== 'undefined' && !window.api) {
     theme: 'dark',
   }
   const noop = (): void => {}
+  const taskSubs = new Set<(p: unknown) => void>()
+  const emitTask = (p: unknown): void => taskSubs.forEach((cb) => cb(p))
   const mockLaunch = {
     exe: 'PlayGTAV.exe',
     pid: 12345,
@@ -155,7 +157,27 @@ if (typeof window !== 'undefined' && !window.api) {
           { id: 'game' as const, path: 'D:\\Games\\GTAV', exists: true, recommended: false },
         ],
       }),
-      install: async (_path: string, target) => ({
+      install: async (path: string, target) => {
+        const taskId = `oiv:${path}`
+        const lines = [
+          'Applying 5 operation(s) to the mods folder…',
+          '✓ visualsettings.dat',
+          '✓ plugins/NVE/config.ini',
+          'Archive update/update.rpf: 3 change(s)',
+          '  copying update/update.rpf into mods…',
+          '  decrypting update/update.rpf to an editable copy (one-time)…',
+          '  rebuilding update/update.rpf (3 change(s))…',
+          '✓ update/update.rpf › common/data/timecycle/w_clear.xml',
+          '✓ update/update.rpf › common/data/reflection.dat',
+          '✓ update/update.rpf › common/data/dlclist.xml',
+          'Done — 5 applied, 0 skipped, 0 failed.',
+        ]
+        for (let i = 0; i < lines.length; i++) {
+          await new Promise((r) => setTimeout(r, 220))
+          emitTask({ taskId, label: lines[i].trim().slice(0, 40), progress: (i + 1) / lines.length, done: false, log: lines[i] })
+        }
+        emitTask({ taskId, label: 'NaturalVision Evolved', progress: 1, done: true })
+        return {
         mod: { ...mockMod, kind: 'oiv' as const, name: 'NaturalVision Evolved', status: 'installed' as const, oivTarget: target },
         report: {
           target,
@@ -170,7 +192,8 @@ if (typeof window !== 'undefined' && !window.api) {
             { target: 'common/data/dlclist.xml', archive: 'update/update.rpf', kind: 'xml-edit' as const, status: 'applied' as const },
           ],
         },
-      }),
+        }
+      },
     },
     profiles: {
       list: async () => mockProfiles,
@@ -320,7 +343,14 @@ if (typeof window !== 'undefined' && !window.api) {
       status: async () => ({ state: 'idle' as const }),
       install: async () => false,
     },
-    on: { taskProgress: () => noop, modsChanged: () => noop, updateStatus: () => noop },
+    on: {
+      taskProgress: (cb) => {
+        taskSubs.add(cb as (p: unknown) => void)
+        return () => taskSubs.delete(cb as (p: unknown) => void)
+      },
+      modsChanged: () => noop,
+      updateStatus: () => noop,
+    },
   }
 
   const mockMod = {
