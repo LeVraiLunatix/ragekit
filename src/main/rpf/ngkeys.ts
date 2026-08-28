@@ -1,9 +1,10 @@
 import { promises as fs, existsSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { aesDecrypt, loadAesKey } from './crypto'
-import type { NgKeys } from './ng'
+import { buildEncryptTables, type NgKeys } from './ng'
 
 /**
  * NG key material. CodeWalker's `magic.dat` is a scrambled blob of
@@ -214,6 +215,102 @@ export async function loadNgKeys(gamePath: string): Promise<NgKeys | null> {
 
 export function ngReady(): boolean {
   return !!cache
+}
+
+// ── inverse (encrypt) round tables ──────────────────────────────────────────
+// Built once from the decrypt tables (~10 s, a GF(2) linear solve per round),
+// then cached to disk keyed by a digest of the decrypt tables so it survives
+// restarts and only rebuilds if the key material ever changes.
+
+const NGENC_VERSION = 1
+const NGENC_BODY = 17 * 16 * 256 * 4 // 278528
+let encDeriving: Promise<Uint32Array[][]> | null = null
+
+function ngencPath(): string {
+  return join(app.getPath('userData'), 'codewalker-ngenc.dat')
+}
+
+function decTablesDigest(dec: Uint32Array[][]): Buffer {
+  const h = createHash('sha256')
+  for (const round of dec) {
+    for (const t of round) h.update(Buffer.from(t.buffer, t.byteOffset, t.byteLength))
+  }
+  return h.digest()
+}
+
+function serializeEnc(enc: Uint32Array[][]): Buffer {
+  const body = Buffer.alloc(NGENC_BODY)
+  let off = 0
+  for (const round of enc) {
+    for (const t of round) {
+      for (let i = 0; i < 256; i++) {
+        body.writeUInt32LE(t[i] >>> 0, off)
+        off += 4
+      }
+    }
+  }
+  return body
+}
+
+function parseEnc(body: Buffer): Uint32Array[][] {
+  const out: Uint32Array[][] = []
+  for (let i = 0; i < 17; i++) {
+    const round: Uint32Array[] = []
+    for (let j = 0; j < 16; j++) round.push(u32Array(body, (i * 16 + j) * 1024, 256))
+    out.push(round)
+  }
+  return out
+}
+
+/**
+ * The 17 inverse round tables, so changed blocks / the TOC can be re-encrypted
+ * in place. Lazily built + disk-cached; safe to call repeatedly.
+ */
+export async function ensureEncryptTables(
+  ng: NgKeys,
+  onProgress?: (done: number, total: number) => void,
+): Promise<Uint32Array[][]> {
+  if (ng.encryptTables) return ng.encryptTables
+  if (encDeriving) return encDeriving
+  encDeriving = (async () => {
+    const digest = decTablesDigest(ng.decryptTables)
+    const p = ngencPath()
+    try {
+      const cached = await fs.readFile(p)
+      if (
+        cached.length === 36 + NGENC_BODY &&
+        cached.readUInt32LE(0) === NGENC_VERSION &&
+        cached.subarray(4, 36).equals(digest)
+      ) {
+        const enc = parseEnc(cached.subarray(36))
+        ng.encryptTables = enc
+        onProgress?.(17, 17)
+        console.log('[ng] encrypt tables loaded from cache')
+        return enc
+      }
+    } catch {
+      /* (re)build below */
+    }
+    const t0 = Date.now()
+    const enc = buildEncryptTables(ng.decryptTables, onProgress)
+    ng.encryptTables = enc
+    console.log(`[ng] encrypt tables built in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+    try {
+      const out = Buffer.alloc(36 + NGENC_BODY)
+      out.writeUInt32LE(NGENC_VERSION, 0)
+      digest.copy(out, 4)
+      serializeEnc(enc).copy(out, 36)
+      await fs.writeFile(p, out)
+    } catch (e) {
+      console.error('[ng] could not cache encrypt tables:', e)
+    }
+    return enc
+  })()
+  try {
+    return await encDeriving
+  } finally {
+    encDeriving = null
+  }
 }
 
 export async function refetchMagic(gamePath: string): Promise<boolean> {

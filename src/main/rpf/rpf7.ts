@@ -3,7 +3,7 @@ import { basename } from 'node:path'
 import { deflateRawSync, inflateRawSync } from 'node:zlib'
 import type { RpfEncryption } from '@shared/types'
 import { aesDecrypt, aesEncrypt } from './crypto'
-import { decryptNg, type NgKeys } from './ng'
+import { decryptNg, encryptNg, type NgKeys } from './ng'
 
 const RPF7_MAGIC = 0x52504637
 const DIR_IDENT = 0x7fffff00
@@ -293,6 +293,15 @@ export class Rpf7 {
    * never rewritten — fast, and no temp-file rename (so no Windows EPERM on the
    * game folder). Directory tree, name table and entry count are untouched, so
    * this only works for targets that already exist as binary files.
+   *
+   * Resource entries (bit-31, RSC7) can be replaced too, as long as the new
+   * content is an RSC7 file — the block is appended and the entry's offset, size
+   * and system/graphics flags are rewritten from the new header.
+   *
+   * NG archives are edited *as* NG: each replaced block is re-encrypted with the
+   * archive's NG key and the TOC is re-encrypted with the (new) file length —
+   * so no whole-archive NG→OPEN conversion is needed. Requires the inverse round
+   * tables (`ng.encryptTables`, see ngkeys.ensureEncryptTables).
    */
   async replaceMany(
     replace: Map<string, Buffer>,
@@ -301,26 +310,98 @@ export class Rpf7 {
     if (this.encryption === 'AES' && !this.keys.aes) {
       throw new Error('Editing this archive needs the AES key from GTA5.exe.')
     }
-    if (this.encryption === 'NG') {
-      throw new Error('NG-encrypted archives must be converted to OPEN before editing.')
+    const ng = this.keys.ng
+    if (this.encryption === 'NG' && !ng?.encryptTables) {
+      throw new Error('NG encrypt tables are not ready — cannot edit this archive in place.')
     }
+    const isNg = this.encryption === 'NG'
+    const archiveName = basename(this.source.path)
 
-    const jobs: Array<{ index: number; payload: Buffer; sizeOnDisk: number; uncompressed: number }> = []
+    interface Job {
+      index: number
+      /** writes this entry's 16 bytes at `index*16`, block starting at `atSectors` */
+      writeEntry: (entries: Buffer, atSectors: number) => void
+      payload: Buffer
+    }
+    const jobs: Job[] = []
     const replaced: string[] = []
     const missing: string[] = []
     for (const [rawPath, content] of replace) {
       const e = this.get(rawPath)
-      if (!e || e.isDir || e.isResource) {
+      if (!e || e.isDir) {
         missing.push(rawPath.replace(/\\/g, '/').toLowerCase())
         continue
       }
-      const comp = deflateRawSync(content, { level: 9 })
-      const useC = comp.length < content.length
+      const o = e.index * 16
+
+      if (e.isResource) {
+        if (content.length < 16 || content.readUInt32LE(0) !== RSC7_MAGIC) {
+          missing.push(e.path)
+          continue
+        }
+        const block = Buffer.from(content) // copy — we patch header size bytes
+        const realLen = block.length
+        if (realLen >= 0xffffff) {
+          block[7] = realLen & 0xff
+          block[14] = (realLen >>> 8) & 0xff
+          block[5] = (realLen >>> 16) & 0xff
+          block[2] = (realLen >>> 24) & 0xff
+        }
+        const fs24 = Math.min(realLen, 0xffffff)
+        const sysFlags = content.readUInt32LE(8) >>> 0
+        const gfxFlags = content.readUInt32LE(12) >>> 0
+        const nameOffset = readNameOffset(this.entriesBuf, e.index) & 0xffff
+        let payload = block
+        if (isNg) {
+          payload = Buffer.concat([
+            block.subarray(0, 16),
+            encryptNg(Buffer.from(block.subarray(16)), e.name, realLen, ng!),
+          ])
+        }
+        jobs.push({
+          index: e.index,
+          payload,
+          writeEntry: (entries, atSectors) => {
+            entries.writeUInt32LE((nameOffset | ((fs24 & 0xffff) << 16)) >>> 0, o)
+            entries.writeUInt32LE(
+              (((fs24 >>> 16) & 0xff) | ((atSectors & 0x7fffff) << 8) | 0x80000000) >>> 0,
+              o + 4,
+            )
+            entries.writeUInt32LE(sysFlags, o + 8)
+            entries.writeUInt32LE(gfxFlags, o + 12)
+          },
+        })
+        replaced.push(e.path)
+        continue
+      }
+
+      // Nested .rpf / .awc blocks are stored raw (as the game expects).
+      const rawStore =
+        /\.(rpf|awc)$/i.test(e.name) ||
+        (content.length >= 4 && content.readUInt32LE(0) === RPF7_MAGIC)
+      const comp = rawStore ? content : deflateRawSync(content, { level: 9 })
+      const useC = !rawStore && comp.length < content.length
+      let payload = useC ? comp : content
+      const sizeOnDisk = useC ? comp.length : 0
+      const uncompressed = content.length
+      // Keep an entry that was plaintext in the vanilla archive plaintext.
+      const origEncType = this.entriesBuf.readUInt32LE(o + 12) >>> 0
+      const encType = isNg && origEncType !== 0 ? origEncType : 0
+      if (encType !== 0) payload = encryptNg(payload, e.name, uncompressed, ng!)
+      const nameOffset = readNameOffset(this.entriesBuf, e.index)
       jobs.push({
         index: e.index,
-        payload: useC ? comp : content,
-        sizeOnDisk: useC ? comp.length : 0,
-        uncompressed: content.length,
+        payload,
+        writeEntry: (entries, atSectors) => {
+          writeBinaryEntry(entries, e.index, {
+            nameOffset,
+            sizeOnDisk,
+            offsetSectors: atSectors,
+            uncompressedSize: uncompressed,
+            encrypted: encType !== 0,
+          })
+          if (encType !== 0) entries.writeUInt32LE(encType, o + 12)
+        },
       })
       replaced.push(e.path)
     }
@@ -334,15 +415,11 @@ export class Rpf7 {
         const padded = Buffer.alloc(alignUp(j.payload.length, SECTOR))
         j.payload.copy(padded)
         await fd.write(padded, 0, padded.length, cursor)
-        writeBinaryEntry(newEntries, j.index, {
-          nameOffset: readNameOffset(newEntries, j.index),
-          sizeOnDisk: j.sizeOnDisk,
-          offsetSectors: cursor / SECTOR,
-          uncompressedSize: j.uncompressed,
-          encrypted: false,
-        })
+        j.writeEntry(newEntries, cursor / SECTOR)
         cursor += padded.length
       }
+      // Append-only, so the file is now exactly `cursor` bytes — that's the
+      // length the game will derive the NG TOC key from, so encrypt with it.
       let outEntries: Buffer = newEntries
       let outNames: Buffer = this.namesBuf
       if (this.encryption === 'AES') {
@@ -351,6 +428,13 @@ export class Rpf7 {
         const back = aesDecrypt(outEntries, this.keys.aes!)
         if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(newEntries)) {
           throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
+        }
+      } else if (isNg) {
+        outEntries = encryptNg(newEntries, archiveName, cursor, ng!)
+        outNames = encryptNg(this.namesBuf, archiveName, cursor, ng!)
+        const back = decryptNg(outEntries, archiveName, cursor, ng!)
+        if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(newEntries)) {
+          throw new Error('RPF TOC NG re-encryption failed a round-trip check — aborting write.')
         }
       }
       await fd.write(outEntries, 0, outEntries.length, 16)
@@ -718,12 +802,20 @@ export class Rpf7 {
     if (!destPath && this.source.kind === 'file') {
       throw new Error('rebuildTree needs a destPath for a file-backed archive.')
     }
+    const ng = this.keys.ng
     if (this.encryption === 'NG') {
-      throw new Error('NG-encrypted archives must be converted to OPEN before editing.')
+      if (!ng?.encryptTables) {
+        throw new Error('NG encrypt tables are not ready — cannot edit this archive in place.')
+      }
+      if (this.source.kind !== 'file' || !destPath) {
+        throw new Error('An NG archive can only be rebuilt to a file path.')
+      }
     }
     if (this.encryption === 'AES' && !this.keys.aes) {
       throw new Error('Editing this archive needs the AES key from GTA5.exe.')
     }
+    const isNg = this.encryption === 'NG'
+    const ngName = this.source.kind === 'file' ? basename(this.source.path) : ''
 
     // ── 1. parse the raw entry table into a mutable tree ──────────────────────
     const raw: RawEnt[] = []
@@ -909,6 +1001,7 @@ export class Rpf7 {
       let uncompressed: number
       let origLen = 0
       let fromOrigOffset: number | undefined
+      let encType = 0
 
       if (e.kind === 'binary' && e.newContent) {
         const content = e.newContent
@@ -920,14 +1013,32 @@ export class Rpf7 {
         payload = useC ? comp : content
         fileSize24 = useC ? comp.length : 0
         uncompressed = content.length
+        if (isNg) {
+          // The whole on-disk block is NG-encrypted, keyed by the uncompressed
+          // size (CodeWalker ExtractFileBinary). Nested .rpf blocks too.
+          payload = encryptNg(payload, e.name, uncompressed, ng!)
+          encType = 1
+        }
       } else if (e.kind === 'binary') {
         fileSize24 = e.fileSize24
         uncompressed = e.uncompressed
         origLen = e.fileSize24 > 0 ? e.fileSize24 : e.uncompressed
         fromOrigOffset = e.offsetSectors * SECTOR
+        // Untouched block copied verbatim — an NG block stays NG-encrypted, so
+        // keep the entry's original encryption marker.
+        encType = e.encType >>> 0
       } else if (e.newContent) {
-        // new / replaced resource — the RSC7 file is stored verbatim
-        payload = e.newContent
+        // new / replaced resource — RSC7 stored verbatim. For an NG archive the
+        // bytes after the 16-byte header are NG-encrypted, keyed by the real
+        // file length (CodeWalker ExtractFileResource).
+        if (isNg) {
+          payload = Buffer.concat([
+            e.newContent.subarray(0, 16),
+            encryptNg(Buffer.from(e.newContent.subarray(16)), e.name, e.newContent.length, ng!),
+          ])
+        } else {
+          payload = e.newContent
+        }
         fileSize24 = Math.min(e.newContent.length, 0xffffff)
         uncompressed = 0
       } else {
@@ -959,12 +1070,15 @@ export class Rpf7 {
           sizeOnDisk: fileSize24,
           offsetSectors: offSectors,
           uncompressedSize: uncompressed,
-          encrypted: false,
+          encrypted: encType !== 0,
         })
+        // Restore the archive's real per-entry NG marker (writeBinaryEntry only
+        // stores a boolean 1).
+        if (encType !== 0) entries.writeUInt32LE(encType >>> 0, o + 12)
       }
     }
 
-    // ── 6. encrypt TOC halves if AES, assemble, write ──────────────────────
+    // ── 6. encrypt TOC halves (AES / NG), assemble, write ──────────────────
     let outEntries: Buffer = entries
     let outNames: Buffer = namesBuf
     if (this.encryption === 'AES') {
@@ -974,13 +1088,24 @@ export class Rpf7 {
       if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(entries)) {
         throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
       }
+    } else if (isNg) {
+      // Keyed by the final on-disk length, which is `cursor` after layout.
+      outEntries = encryptNg(entries, ngName, cursor, ng!)
+      outNames = encryptNg(namesBuf, ngName, cursor, ng!)
+      const back = decryptNg(outEntries, ngName, cursor, ng!)
+      if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(entries)) {
+        throw new Error('RPF TOC NG re-encryption failed a round-trip check — aborting write.')
+      }
     }
     const firstOffset = alignUp(16 + outEntries.length + outNames.length, SECTOR)
     const toc = Buffer.alloc(firstOffset)
     toc.writeUInt32LE(RPF7_MAGIC, 0)
     toc.writeUInt32LE(entryCount, 4)
     toc.writeUInt32LE(namesLength, 8)
-    toc.writeUInt32LE(this.encryption === 'AES' ? 0x0ffffff9 : 0x4e45504f, 12)
+    toc.writeUInt32LE(
+      this.encryption === 'AES' ? 0x0ffffff9 : isNg ? 0x0fefffff : 0x4e45504f,
+      12,
+    )
     outEntries.copy(toc, 16)
     outNames.copy(toc, 16 + outEntries.length)
 

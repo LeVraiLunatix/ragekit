@@ -6,7 +6,7 @@ import { applyTextEdits, applyXmlEdits } from './oivXmlEdit'
 import { withOivZip, type OivZip } from './oivZip'
 import { ensureDir, copyFile, pathExists, removeFileAndPrune } from './fsutil'
 import { loadAesKey } from '../rpf/crypto'
-import { loadNgKeys } from '../rpf/ngkeys'
+import { loadNgKeys, ensureEncryptTables } from '../rpf/ngkeys'
 import { Rpf7, type RpfMutation, type RpfKeys } from '../rpf/rpf7'
 
 const slash = (p: string): string => p.split(sep).join('/')
@@ -97,10 +97,11 @@ export interface OivApplyResult {
  *
  * - Loose files: copied / deleted with per-file backups (fully reversible).
  * - `<add>` into a level-1 .rpf (target = mods folder): the archive is pulled
- *   into mods/ if missing, NG-encrypted vanilla archives (update.rpf, x64*.rpf,
- *   common.rpf) are decrypted to OPEN in place once, then a single rebuild per
- *   archive applies every replacement and every brand-new file (entry table and
- *   name table regenerated). A whole-archive backup is taken first.
+ *   into mods/ if missing (NG-encrypted vanilla archives — update.rpf, x64*.rpf,
+ *   common.rpf — are copied as-is and edited *as NG*, no whole-archive convert).
+ *   Same-name replacements (binary, resource, or a rebuilt nested .rpf) are
+ *   appended in place; brand-new entries trigger a single full repack with the
+ *   entry and name tables regenerated. A whole-archive backup is taken first.
  * - `<text>` / `<xml>` edits are applied to the target file (read from the
  *   archive, patched line- or element-wise, written back as a replacement).
  * - Still deferred: deletes inside a .rpf.
@@ -280,24 +281,35 @@ export async function applyOivPackage(
         }
 
         if (rpf.encryption === 'NG') {
-          // NG vanilla archive → decrypt straight into mods/ (no separate copy).
-          // The untouched game folder file IS the backup.
+          // NG vanilla archive → edit it *as NG*, in place. No whole-archive
+          // decrypt: just build the inverse round tables once (cached), copy the
+          // archive into mods/ untouched, and let replaceMany / rebuildTree
+          // re-encrypt only the blocks that change. The game-folder file stays
+          // pristine and is the backup.
           if (!ngKeys) {
             for (const op of ops) push(op, 'skipped', `${archiveRel} is NG-encrypted and NG keys aren't loaded (Settings › NG keys)`)
             step(40)
             continue
           }
-          if (inMods) await backup(archiveFs)
-          logLine(`  decrypting ${archiveRel} to an editable copy (one-time)…`)
-          const convBase = unitsDone
-          await rpf.convertToOpen(archiveFs, (d, t) => {
-            const frac = d / Math.max(t, 1)
-            report?.({
-              progress: Math.min(convBase + 24 * frac, unitsTotal) / unitsTotal,
-              label: `Converting ${archiveRel} — ${Math.round(frac * 100)}%`,
+          if (!ngKeys.encryptTables) {
+            logLine('  preparing the NG encoder (one-time, ~10 s)…')
+            const encBase = unitsDone
+            await ensureEncryptTables(ngKeys, (d, t) => {
+              const frac = d / Math.max(t, 1)
+              report?.({
+                progress: Math.min(encBase + 6 * frac, unitsTotal) / unitsTotal,
+                label: `Preparing NG encoder — ${Math.round(frac * 100)}%`,
+              })
             })
-          })
-          step(24)
+            step(6)
+          }
+          if (inMods) {
+            await backup(archiveFs)
+          } else {
+            logLine(`  copying ${archiveRel} into mods…`)
+            bump(10, `Copying ${archiveRel} into mods…`)
+            await copyFile(vanilla, archiveFs)
+          }
           rpf = await Rpf7.open(archiveFs, keys)
         } else if (!inMods) {
           // Editable (OPEN/AES) vanilla archive → a plain copy into mods/ is enough.
@@ -310,8 +322,11 @@ export async function applyOivPackage(
 
         const mutations: RpfMutation[] = []
         const staged: { op: OivOp; path: string }[] = []
-        let touchesResource = false
-        let touchesNested = false
+        // Only a structural change (new entry, or an RSC7 file landing on a slot
+        // that is currently a plain binary entry → its kind flips) needs the
+        // full entry/name-table regen. Plain same-name replacements — binary,
+        // resource, or a rebuilt nested .rpf — are appended in place.
+        let needsTree = false
 
         // ── nested-archive ops: rebuild the inner .rpf in memory ─────────────
         const nestedGroups = new Map<string, OivOp[]>()
@@ -335,7 +350,6 @@ export async function applyOivPackage(
           }
           if (res.buf.length) {
             mutations.push({ op: 'replace', path: lower(chain[0]), content: res.buf })
-            touchesNested = true
           }
         }
 
@@ -373,7 +387,8 @@ export async function applyOivPackage(
             push(op, 'skipped', `${op.target} is a resource but the package source isn't an RSC7 file`)
             continue
           }
-          if (inner?.isResource || rsc7) touchesResource = true
+          if (!inner) needsTree = true // brand-new entry
+          else if (rsc7 && !inner.isResource) needsTree = true // binary slot → resource
           const path = lower(inner?.path ?? op.target)
           mutations.push({ op: inner ? 'replace' : 'add', path, content: buf })
           staged.push({ op, path })
@@ -384,9 +399,8 @@ export async function applyOivPackage(
         }
 
         await backup(archiveFs)
-        logLine(`  rebuilding ${archiveRel} (${mutations.length} change(s))…`)
-        bump(12, `Rebuilding ${archiveRel}…`)
-        const needsTree = touchesResource || touchesNested || mutations.some((m) => m.op === 'add')
+        bump(12, needsTree ? `Rebuilding ${archiveRel}…` : `Patching ${archiveRel}…`)
+        logLine(`  ${needsTree ? 'rebuilding' : 'patching'} ${archiveRel} (${mutations.length} change(s))…`)
         const done2 = new Set<string>()
         if (needsTree) {
           const r = await rpf.rebuildTree(mutations, archiveFs)
