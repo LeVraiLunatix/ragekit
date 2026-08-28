@@ -23,6 +23,7 @@ export const IPC = {
   modsInstall: 'mods:install',
   modsUninstall: 'mods:uninstall',
   modsSetEnabled: 'mods:setEnabled',
+  modsSetAllEnabled: 'mods:setAllEnabled',
   modsRemove: 'mods:remove',
   modsReorder: 'mods:reorder',
   modsOpenFolder: 'mods:openFolder',

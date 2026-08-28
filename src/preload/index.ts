@@ -56,6 +56,8 @@ const api = {
     uninstall: (modId: string): Promise<Mod> => ipcRenderer.invoke(IPC.modsUninstall, modId),
     setEnabled: (modId: string, enabled: boolean): Promise<Mod> =>
       ipcRenderer.invoke(IPC.modsSetEnabled, modId, enabled),
+    setAllEnabled: (enabled: boolean): Promise<Mod[]> =>
+      ipcRenderer.invoke(IPC.modsSetAllEnabled, enabled),
     remove: (modId: string): Promise<void> => ipcRenderer.invoke(IPC.modsRemove, modId),
     reorder: (modId: string, loadOrder: number): Promise<Mod> =>
       ipcRenderer.invoke(IPC.modsReorder, modId, loadOrder),

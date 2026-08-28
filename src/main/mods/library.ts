@@ -344,6 +344,21 @@ export async function setEnabled(modId: string, enabled: boolean): Promise<Mod> 
   return mod
 }
 
+/** Enable or disable every managed mod in one go (for bisecting a crash). */
+export async function setAllEnabled(enabled: boolean): Promise<Mod[]> {
+  const targets = getMods()
+    .filter((m) => (enabled ? m.status !== 'installed' : m.status === 'installed'))
+    .sort((a, b) => a.loadOrder - b.loadOrder)
+  for (const m of targets) {
+    try {
+      await setEnabled(m.id, enabled)
+    } catch {
+      // keep going — one bad mod shouldn't block the rest
+    }
+  }
+  return listMods()
+}
+
 export async function removeMod(modId: string): Promise<void> {
   const mod = getMods().find((m) => m.id === modId)
   if (!mod) return

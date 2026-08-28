@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Boxes,
   FolderOpen,
@@ -12,6 +12,8 @@ import {
   TriangleAlert,
   RefreshCw,
   ArrowUpCircle,
+  Search,
+  Power,
 } from 'lucide-react'
 import type { FoundMod, Mod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -19,6 +21,29 @@ import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { GameModeCard } from '@/components/GameModeCard'
 import { Button, Card, Badge, Toggle, EmptyState } from '@/components/ui'
+
+type SortKey = 'order' | 'name' | 'recent' | 'status' | 'type'
+type FilterKey = 'all' | 'installed' | 'disabled' | 'updates'
+
+/** Small localStorage-backed state so the sort/filter choice sticks. */
+function usePersisted<T extends string>(key: string, initial: T): [T, (v: T) => void] {
+  const [v, setV] = useState<T>(() => {
+    try {
+      return (localStorage.getItem(key) as T) || initial
+    } catch {
+      return initial
+    }
+  })
+  const set = (next: T): void => {
+    setV(next)
+    try {
+      localStorage.setItem(key, next)
+    } catch {
+      /* private mode */
+    }
+  }
+  return [v, set]
+}
 
 function StatusBadge({ status }: { status: Mod['status'] }): ReactNode {
   const { t } = useI18n()
@@ -93,6 +118,7 @@ function ScanBanner(): ReactNode {
 function ModRow({
   mod,
   locked,
+  sortable,
   conflictWith,
   hasUpdate,
   canMoveUp,
@@ -100,6 +126,7 @@ function ModRow({
 }: {
   mod: Mod
   locked: boolean
+  sortable: boolean
   conflictWith: string[]
   hasUpdate: boolean
   canMoveUp: boolean
@@ -145,9 +172,11 @@ function ModRow({
     }
   }
 
+  const showArrows = enabled && !locked && sortable
+
   return (
     <Card className="flex items-center gap-3 p-4">
-      {enabled && !locked && (
+      {showArrows ? (
         <div className="flex flex-col">
           <button
             onClick={() => move('up')}
@@ -166,6 +195,8 @@ function ModRow({
             <ChevronDown className="size-4" />
           </button>
         </div>
+      ) : (
+        enabled && !locked && <div className="w-4 shrink-0" />
       )}
       <Toggle checked={enabled} onChange={toggle} disabled={busy || locked} />
       <div className="min-w-0 flex-1">
@@ -223,13 +254,25 @@ function ModRow({
   )
 }
 
+const STATUS_RANK: Record<Mod['status'], number> = {
+  installed: 0,
+  error: 1,
+  disabled: 2,
+  'not-installed': 3,
+}
+
 export function LibraryPage(): ReactNode {
   const { t, tc } = useI18n()
-  const { mods, config, conflicts, setRoute } = useAppStore()
+  const { mods, config, conflicts, setRoute, refreshMods, refreshDeps } = useAppStore()
   const locked = !!config?.onlineSafeMode
   const [updates, setUpdates] = useState<Set<string>>(new Set())
   const [checking, setChecking] = useState(false)
+  const [bulk, setBulk] = useState(false)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = usePersisted<SortKey>('lib.sort', 'order')
+  const [filter, setFilter] = usePersisted<FilterKey>('lib.filter', 'all')
   const hasSourced = mods.some((m) => m.sourceUrl)
+  const installedCount = mods.filter((m) => m.status === 'installed').length
 
   const checkUpdates = async (): Promise<void> => {
     setChecking(true)
@@ -241,20 +284,73 @@ export function LibraryPage(): ReactNode {
     }
   }
 
-  const nameById = new Map(mods.map((m) => [m.id, m.name]))
-  const conflictNames = new Map<string, Set<string>>()
-  for (const c of conflicts) {
-    for (const id of c.modIds) {
-      const others = c.modIds.filter((x) => x !== id).map((x) => nameById.get(x) ?? x)
-      conflictNames.set(id, new Set([...(conflictNames.get(id) ?? []), ...others]))
+  const setAll = async (enabled: boolean): Promise<void> => {
+    setBulk(true)
+    try {
+      await window.api.mods.setAllEnabled(enabled)
+      await Promise.all([refreshMods(), refreshDeps()])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('GAME_DIR_NOT_WRITABLE')) {
+        if (confirm(`${t('admin.dialogTitle')}\n\n${t('admin.dialogBody')}`)) {
+          const ok = await window.api.system.relaunchAdmin()
+          if (!ok) alert(t('admin.devHint'))
+        }
+      } else {
+        alert(msg)
+      }
+    } finally {
+      setBulk(false)
     }
   }
-  const installed = mods.filter((m) => m.status === 'installed')
+
+  const nameById = useMemo(() => new Map(mods.map((m) => [m.id, m.name])), [mods])
+  const conflictNames = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const c of conflicts) {
+      for (const id of c.modIds) {
+        const others = c.modIds.filter((x) => x !== id).map((x) => nameById.get(x) ?? x)
+        map.set(id, new Set([...(map.get(id) ?? []), ...others]))
+      }
+    }
+    return map
+  }, [conflicts, nameById])
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    let list = mods.filter((m) => {
+      if (q && !`${m.name} ${m.author ?? ''}`.toLowerCase().includes(q)) return false
+      if (filter === 'installed') return m.status === 'installed'
+      if (filter === 'disabled') return m.status !== 'installed'
+      if (filter === 'updates') return updates.has(m.id)
+      return true
+    })
+    const cmp: Record<SortKey, (a: Mod, b: Mod) => number> = {
+      order: (a, b) => a.loadOrder - b.loadOrder || a.name.localeCompare(b.name),
+      name: (a, b) => a.name.localeCompare(b.name),
+      recent: (a, b) => (b.addedAt > a.addedAt ? 1 : b.addedAt < a.addedAt ? -1 : 0),
+      status: (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || a.name.localeCompare(b.name),
+      type: (a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name),
+    }
+    return [...list].sort(cmp[sort])
+  }, [mods, query, filter, sort, updates])
+
+  const installedOrder = useMemo(
+    () =>
+      mods
+        .filter((m) => m.status === 'installed')
+        .sort((a, b) => a.loadOrder - b.loadOrder)
+        .map((m) => m.id),
+    [mods],
+  )
+
+  const selCls =
+    'no-drag h-8 rounded-md border border-line bg-bg px-2 text-[12px] text-ink-soft outline-none focus:border-brand/50'
 
   return (
     <Page
       title={t('library.title')}
-      subtitle={`${tc('library.count', mods.length)} · ${t('library.subtitle')}`}
+      subtitle={`${tc('library.count', mods.length)} · ${tc('library.installedCount', installedCount)}`}
       actions={
         <>
           {hasSourced && (
@@ -286,22 +382,77 @@ export function LibraryPage(): ReactNode {
           }
         />
       ) : (
-        <div className="space-y-2">
-          {mods.map((mod) => {
-            const enabledIdx = installed.findIndex((m) => m.id === mod.id)
-            return (
-              <ModRow
-                key={mod.id}
-                mod={mod}
-                locked={locked}
-                conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
-                hasUpdate={updates.has(mod.id)}
-                canMoveUp={enabledIdx > 0}
-                canMoveDown={enabledIdx >= 0 && enabledIdx < installed.length - 1}
+        <>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[10rem] flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('library.search')}
+                className="no-drag h-8 w-full rounded-md border border-line bg-bg pl-8 pr-2 text-[12.5px] outline-none placeholder:text-ink-faint focus:border-brand/50"
               />
-            )
-          })}
-        </div>
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className={selCls}
+              title={t('library.sortBy')}
+            >
+              <option value="order">{t('library.sort.order')}</option>
+              <option value="name">{t('library.sort.name')}</option>
+              <option value="recent">{t('library.sort.recent')}</option>
+              <option value="status">{t('library.sort.status')}</option>
+              <option value="type">{t('library.sort.type')}</option>
+            </select>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as FilterKey)}
+              className={selCls}
+            >
+              <option value="all">{t('library.filter.all')}</option>
+              <option value="installed">{t('library.filter.installed')}</option>
+              <option value="disabled">{t('library.filter.disabled')}</option>
+              <option value="updates">{t('library.filter.updates')}</option>
+            </select>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={bulk}
+              disabled={locked || (installedCount === 0 && filter !== 'disabled')}
+              onClick={() => void setAll(installedCount === 0)}
+            >
+              <Power className="size-3.5" />
+              {installedCount === 0 ? t('library.enableAll') : t('library.disableAll')}
+            </Button>
+          </div>
+
+          {sort !== 'order' && (
+            <p className="mb-2 text-[11px] text-ink-faint">{t('library.orderHint')}</p>
+          )}
+
+          {visible.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-ink-faint">{t('library.noMatch')}</p>
+          ) : (
+            <div className="space-y-2">
+              {visible.map((mod) => {
+                const idx = installedOrder.indexOf(mod.id)
+                return (
+                  <ModRow
+                    key={mod.id}
+                    mod={mod}
+                    locked={locked}
+                    sortable={sort === 'order' && !query}
+                    conflictWith={[...(conflictNames.get(mod.id) ?? [])]}
+                    hasUpdate={updates.has(mod.id)}
+                    canMoveUp={idx > 0}
+                    canMoveDown={idx >= 0 && idx < installedOrder.length - 1}
+                  />
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
     </Page>
   )

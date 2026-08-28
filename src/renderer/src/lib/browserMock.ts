@@ -118,6 +118,7 @@ if (typeof window !== 'undefined' && !window.api) {
       install: async () => ({ ...mockMod }),
       uninstall: async () => ({ ...mockMod }),
       setEnabled: async () => ({ ...mockMod }),
+      setAllEnabled: async () => [],
       remove: async () => {},
       reorder: async () => ({ ...mockMod }),
       openFolder: async () => {},
