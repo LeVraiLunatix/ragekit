@@ -28,6 +28,7 @@ if (typeof window !== 'undefined' && !window.api) {
     durationMs: 18400,
     stdout: '',
     stderr: '',
+    safeMode: false,
     crashEvents: [
       {
         time: new Date().toISOString(),

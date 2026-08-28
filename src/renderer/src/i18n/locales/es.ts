@@ -168,6 +168,10 @@ export const es: Dict = {
     eventAt: 'evento de Windows {time}',
     output: 'Salida del proceso',
     gameConfig: 'Config de inicio',
+    vanillaButton: 'Probar vanilla',
+    vanillaBadge: 'sin mods',
+    vanillaOkHint: 'Vanilla arranca bien: el problema es un mod. Vuelve al Modo Historia y desactiva mods uno a uno (empieza por GTAV.HeapAdjuster.asi / GTAVUpscaler.asi).',
+    vanillaCrashedHint: 'Sigue fallando sin mods: la instalación del juego está dañada. Usa «verificar archivos» en Steam/Rockstar o el Modo seguro del lanzador.',
   },
   add: {
     title: 'Añadir mods',

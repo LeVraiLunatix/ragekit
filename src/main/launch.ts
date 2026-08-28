@@ -310,6 +310,7 @@ export async function launchGame(): Promise<LaunchReport> {
     durationMs: Date.now() - t0,
     stdout: stdout.trim(),
     stderr: stderr.trim(),
+    safeMode: !!store.get('config').onlineSafeMode,
     crashEvents,
     werReports,
     logs,

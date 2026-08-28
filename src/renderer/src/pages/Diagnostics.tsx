@@ -9,6 +9,7 @@ import {
   XCircle,
   Bug,
   Clock,
+  ShieldCheck,
 } from 'lucide-react'
 import type { LaunchReport, LogFile } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -43,10 +44,27 @@ function LaunchCard({ report }: { report: LaunchReport }): ReactNode {
         <Badge tone={outcome.tone}>
           {outcome.icon} {outcome.label}
         </Badge>
+        {report.safeMode && (
+          <Badge tone="good">
+            <ShieldCheck className="size-3" /> {t('launch.vanillaBadge')}
+          </Badge>
+        )}
         <span className="ml-auto text-[11px] text-ink-faint">
           {t('launch.exe', { exe: report.exe })} · {relative(report.startedAt)}
         </span>
       </div>
+
+      {report.safeMode && (
+        <p
+          className={`mt-2 rounded-lg border px-3 py-2 text-[12px] ${
+            report.stillRunning
+              ? 'border-good/25 bg-good/10 text-good'
+              : 'border-warn/25 bg-warn/10 text-warn'
+          }`}
+        >
+          {report.stillRunning ? t('launch.vanillaOkHint') : t('launch.vanillaCrashedHint')}
+        </p>
+      )}
 
       {report.spawnError && (
         <p className="mt-2 rounded-lg border border-bad/25 bg-bad/10 px-3 py-2 font-mono text-[11px] text-bad">
@@ -222,6 +240,7 @@ export function DiagnosticsPage(): ReactNode {
   const lastLaunch = useAppStore((s) => s.lastLaunch)
   const launching = useAppStore((s) => s.launching)
   const launchGame = useAppStore((s) => s.launchGame)
+  const launchVanilla = useAppStore((s) => s.launchVanilla)
   const [files, setFiles] = useState<LogFile[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -261,6 +280,15 @@ export function DiagnosticsPage(): ReactNode {
           <Button size="sm" variant="primary" loading={launching} onClick={() => void launchGame()}>
             <Play className="size-3.5" />
             {launching ? t('launch.launching') : t('launch.button')}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={launching}
+            onClick={() => void launchVanilla()}
+          >
+            <ShieldCheck className="size-3.5" />
+            {t('launch.vanillaButton')}
           </Button>
           <Button size="sm" variant="ghost" loading={loading} onClick={load}>
             <RefreshCw className="size-3.5" />

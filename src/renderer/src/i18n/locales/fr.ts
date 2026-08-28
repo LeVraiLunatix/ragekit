@@ -169,6 +169,12 @@ export const fr: Dict = {
     eventAt: 'événement Windows {time}',
     output: 'Sortie du processus',
     gameConfig: 'Config de lancement',
+    vanillaButton: 'Test vanilla',
+    vanillaBadge: 'mods retirés',
+    vanillaOkHint:
+      'Le jeu démarre en vanilla — c’est donc un mod. Repasse en mode Histoire et désactive tes mods un par un (commence par GTAV.HeapAdjuster.asi / GTAVUpscaler.asi).',
+    vanillaCrashedHint:
+      'Il plante même sans mods — l’installation du jeu est abîmée. Lance « vérifier les fichiers » sur Steam/Rockstar, ou essaie le Mode sans échec du launcher.',
   },
   add: {
     title: 'Ajouter des mods',

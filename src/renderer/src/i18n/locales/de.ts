@@ -168,6 +168,10 @@ export const de: Dict = {
     eventAt: 'Windows-Ereignis {time}',
     output: 'Prozessausgabe',
     gameConfig: 'Start-Konfiguration',
+    vanillaButton: 'Vanilla testen',
+    vanillaBadge: 'ohne Mods',
+    vanillaOkHint: 'Vanilla startet einwandfrei — also liegt es an einem Mod. Zurück zum Story-Modus und Mods einzeln deaktivieren (beginne mit GTAV.HeapAdjuster.asi / GTAVUpscaler.asi).',
+    vanillaCrashedHint: 'Es stürzt auch ohne Mods ab — die Spielinstallation ist beschädigt. Nutze „Dateien überprüfen“ in Steam/Rockstar oder den abgesicherten Modus des Launchers.',
   },
   add: {
     title: 'Mods hinzufügen',

@@ -42,6 +42,7 @@ interface AppState {
   completeOnboarding: () => Promise<void>
   setOnlineSafe: (active: boolean) => Promise<void>
   launchGame: () => Promise<void>
+  launchVanilla: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -109,6 +110,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().launching) return
     set({ launching: true, route: 'diagnostics' })
     try {
+      const report = await window.api.game.launch()
+      set({ lastLaunch: report })
+      await get().refreshDeps()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      set({ launching: false })
+    }
+  },
+
+  launchVanilla: async () => {
+    if (get().launching) return
+    set({ launching: true, route: 'diagnostics' })
+    try {
+      if (!get().config?.onlineSafeMode) {
+        await window.api.online.setMode(true)
+        const [config] = await Promise.all([window.api.config.get(), get().refreshMods()])
+        set({ config })
+      }
       const report = await window.api.game.launch()
       set({ lastLaunch: report })
       await get().refreshDeps()

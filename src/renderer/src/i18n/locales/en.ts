@@ -166,6 +166,10 @@ export const en = {
     eventAt: 'Windows event {time}',
     output: 'Process output',
     gameConfig: 'Launch config',
+    vanillaButton: 'Test vanilla',
+    vanillaBadge: 'mods removed',
+    vanillaOkHint: 'Vanilla launched fine — so a mod is the problem. Switch back to Story Mode and disable mods one by one (start with GTAV.HeapAdjuster.asi / GTAVUpscaler.asi).',
+    vanillaCrashedHint: 'It still crashes with no mods — the game install itself is damaged. Run "verify files" in Steam/Rockstar, or try Safe Mode in the launcher.',
   },
   add: {
     title: 'Add mods',

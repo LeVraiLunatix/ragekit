@@ -266,6 +266,8 @@ export interface LaunchReport {
   durationMs: number
   stdout: string
   stderr: string
+  /** Online-safe mode was on — this was a mods-removed "vanilla" test launch. */
+  safeMode: boolean
   crashEvents: CrashEvent[]
   /** GTA5 crashes recovered from Windows Error Reporting — names the fault module. */
   werReports: WerReport[]
