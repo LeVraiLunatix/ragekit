@@ -4,12 +4,14 @@ import { useAppStore } from '@/store/useAppStore'
 import { I18nProvider, useI18n } from '@/i18n'
 import { PromptProvider } from '@/components/PromptDialog'
 import { AdminBanner } from '@/components/AdminBanner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TitleBar } from '@/components/TitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
 import { LibraryPage } from '@/pages/Library'
 import { AddModsPage } from '@/pages/AddMods'
 import { ProfilesPage } from '@/pages/Profiles'
+import { LaunchPage } from '@/pages/Launch'
 import { ArchivesPage } from '@/pages/Archives'
 import { DependenciesPage } from '@/pages/Dependencies'
 import { DiagnosticsPage } from '@/pages/Diagnostics'
@@ -38,13 +40,16 @@ function Shell(): ReactNode {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {route === 'library' && <LibraryPage />}
-          {route === 'add' && <AddModsPage />}
-          {route === 'profiles' && <ProfilesPage />}
-          {route === 'archives' && <ArchivesPage />}
-          {route === 'dependencies' && <DependenciesPage />}
-          {route === 'diagnostics' && <DiagnosticsPage />}
-          {route === 'settings' && <SettingsPage />}
+          <ErrorBoundary resetKey={route}>
+            {route === 'library' && <LibraryPage />}
+            {route === 'add' && <AddModsPage />}
+            {route === 'profiles' && <ProfilesPage />}
+            {route === 'launch' && <LaunchPage />}
+            {route === 'archives' && <ArchivesPage />}
+            {route === 'dependencies' && <DependenciesPage />}
+            {route === 'diagnostics' && <DiagnosticsPage />}
+            {route === 'settings' && <SettingsPage />}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

@@ -23,7 +23,8 @@ export const fr: Dict = {
     library: 'Bibliothèque',
     add: 'Ajouter des mods',
     profiles: 'Profils',
-    archives: 'Archives',
+    launch: 'Lancer',
+    archives: 'Fichiers du jeu',
     dependencies: 'Dépendances',
     diagnostics: 'Diagnostic',
     settings: 'Paramètres',
@@ -176,6 +177,13 @@ export const fr: Dict = {
     vanillaCrashedHint:
       'Il plante même sans mods — l’installation du jeu est abîmée. Lance « vérifier les fichiers » sur Steam/Rockstar, ou essaie le Mode sans échec du launcher.',
   },
+  launchPage: {
+    title: 'Lancer',
+    subtitle: 'Démarre GTA V et vois ce qui s’est passé.',
+    emptyTitle: 'Prêt quand tu veux',
+    emptyHint:
+      'Clique Lancer GTA V pour démarrer le jeu. S’il plante, le rapport indique le module défaillant.',
+  },
   add: {
     title: 'Ajouter des mods',
     subtitle:
@@ -307,7 +315,7 @@ export const fr: Dict = {
     },
   },
   archives: {
-    title: 'Archives',
+    title: 'Fichiers du jeu',
     subtitle: 'Explore les archives .rpf de GTA V — extraire, prévisualiser, remplacer des fichiers (façon OpenIV).',
     setFolderFirst: 'Définis d’abord ton dossier de jeu',
     game: 'Jeu',

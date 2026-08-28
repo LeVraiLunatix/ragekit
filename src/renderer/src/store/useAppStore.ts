@@ -14,6 +14,7 @@ export type Route =
   | 'library'
   | 'add'
   | 'profiles'
+  | 'launch'
   | 'archives'
   | 'dependencies'
   | 'diagnostics'
@@ -108,7 +109,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   launchGame: async () => {
     if (get().launching) return
-    set({ launching: true, route: 'diagnostics' })
+    set({ launching: true, route: 'launch' })
     try {
       const report = await window.api.game.launch()
       set({ lastLaunch: report })
@@ -122,7 +123,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   launchVanilla: async () => {
     if (get().launching) return
-    set({ launching: true, route: 'diagnostics' })
+    set({ launching: true, route: 'launch' })
     try {
       if (!get().config?.onlineSafeMode) {
         await window.api.online.setMode(true)

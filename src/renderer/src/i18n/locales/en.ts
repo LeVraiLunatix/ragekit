@@ -22,7 +22,8 @@ export const en = {
     library: 'Library',
     add: 'Add mods',
     profiles: 'Profiles',
-    archives: 'Archives',
+    launch: 'Launch',
+    archives: 'Game files',
     dependencies: 'Dependencies',
     diagnostics: 'Diagnostics',
     settings: 'Settings',
@@ -171,6 +172,12 @@ export const en = {
     vanillaOkHint: 'Vanilla launched fine — so a mod is the problem. Switch back to Story Mode and disable mods one by one (start with GTAV.HeapAdjuster.asi / GTAVUpscaler.asi).',
     vanillaCrashedHint: 'It still crashes with no mods — the game install itself is damaged. Run "verify files" in Steam/Rockstar, or try Safe Mode in the launcher.',
   },
+  launchPage: {
+    title: 'Launch',
+    subtitle: 'Start GTA V and see how it went.',
+    emptyTitle: 'Ready when you are',
+    emptyHint: 'Hit Launch GTA V to start the game. If it crashes, the report shows the faulting module.',
+  },
   add: {
     title: 'Add mods',
     subtitle:
@@ -302,7 +309,7 @@ export const en = {
     },
   },
   archives: {
-    title: 'Archives',
+    title: 'Game files',
     subtitle: 'Browse GTA V .rpf archives — extract, preview and replace files (OpenIV-style).',
     setFolderFirst: 'Set your game folder first',
     game: 'Game',

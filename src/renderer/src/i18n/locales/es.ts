@@ -23,7 +23,8 @@ export const es: Dict = {
     library: 'Biblioteca',
     add: 'Añadir mods',
     profiles: 'Perfiles',
-    archives: 'Archivos',
+    launch: 'Iniciar',
+    archives: 'Archivos del juego',
     dependencies: 'Dependencias',
     diagnostics: 'Diagnóstico',
     settings: 'Ajustes',
@@ -173,6 +174,12 @@ export const es: Dict = {
     vanillaOkHint: 'Vanilla arranca bien: el problema es un mod. Vuelve al Modo Historia y desactiva mods uno a uno (empieza por GTAV.HeapAdjuster.asi / GTAVUpscaler.asi).',
     vanillaCrashedHint: 'Sigue fallando sin mods: la instalación del juego está dañada. Usa «verificar archivos» en Steam/Rockstar o el Modo seguro del lanzador.',
   },
+  launchPage: {
+    title: 'Iniciar',
+    subtitle: 'Arranca GTA V y mira qué pasó.',
+    emptyTitle: 'Listo cuando quieras',
+    emptyHint: 'Pulsa Iniciar GTA V para arrancar el juego. Si falla, el informe muestra el módulo con fallo.',
+  },
   add: {
     title: 'Añadir mods',
     subtitle:
@@ -304,7 +311,7 @@ export const es: Dict = {
     },
   },
   archives: {
-    title: 'Archivos',
+    title: 'Archivos del juego',
     subtitle: 'Explora los archivos .rpf de GTA V — extraer, previsualizar y reemplazar archivos (estilo OpenIV).',
     setFolderFirst: 'Primero define tu carpeta del juego',
     game: 'Juego',

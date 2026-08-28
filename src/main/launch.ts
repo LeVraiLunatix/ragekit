@@ -324,13 +324,28 @@ export async function launchGame(): Promise<LaunchReport> {
   return report
 }
 
+/** Back-fill fields that older builds didn't store, so the renderer never NPEs. */
+function normalize(r: LaunchReport | null): LaunchReport | null {
+  if (!r) return null
+  return {
+    ...r,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+    safeMode: r.safeMode ?? false,
+    crashEvents: r.crashEvents ?? [],
+    werReports: r.werReports ?? [],
+    logs: r.logs ?? [],
+    gameConfig: r.gameConfig ?? [],
+  }
+}
+
 export function getLastLaunch(): LaunchReport | null {
-  return store.get('lastLaunch')
+  return normalize(store.get('lastLaunch'))
 }
 
 /** Re-read the event log + WER + mod logs for the last launch (it may have crashed later). */
 export async function recheckLastLaunch(): Promise<LaunchReport | null> {
-  const prev = store.get('lastLaunch')
+  const prev = normalize(store.get('lastLaunch'))
   if (!prev) return null
   const gamePath = store.get('config').game?.path
   const since = new Date(prev.startedAt)
