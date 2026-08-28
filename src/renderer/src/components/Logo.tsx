@@ -32,12 +32,12 @@ export function Logo({ size = 20, className }: { size?: number; className?: stri
         strokeOpacity="0.3"
         strokeWidth="1.5"
       />
-      <g fill="url(#rk-grad)">
+      <g fill="url(#rk-grad)" transform="translate(1.6 0)">
         <path
           fillRule="evenodd"
-          d="M18 14 h10 v36 h-10 Z M27 14 h8.5 a13.25 13.25 0 0 1 0 26.5 h-8.5 v-8.5 h8.5 a4.75 4.75 0 0 0 0 -9.5 h-8.5 Z"
+          d="M16 13 L35 13 C43.6 13 49.5 18.7 49.5 25 C49.5 31.3 43.6 37 35 37 L26 37 L26 22 L35 22 C38.6 22 40.5 23.4 40.5 25 C40.5 26.6 38.6 28 35 28 L26 28 L26 51 L16 51 Z"
         />
-        <path d="M28.5 33 L48 50 H37.2 L24 36.5 Z" />
+        <path d="M30.5 34.5 L48.8 51 L36.3 51 L21.6 37.9 Z" />
       </g>
     </svg>
   )
