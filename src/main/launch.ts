@@ -33,6 +33,15 @@ function decode(buf: Buffer): string {
   return buf.toString('utf8')
 }
 
+/** Lowercase + strip accents/apostrophes — for matching localized WER labels. */
+function flat(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[’']/g, "'")
+}
+
 /* -------------------------------------------------------- Windows Error Rpt --- */
 
 function werDirs(): string[] {
@@ -72,15 +81,23 @@ async function parseWerFile(file: string): Promise<WerReport | null> {
   const sigs: string[] = []
   let faultModule: string | undefined
   let exceptionCode: string | undefined
-  let appName = kv.get('AppName') ?? ''
+  const appName = kv.get('AppName') || 'GTA5.exe'
   for (const [i, name] of sigName) {
     const v = sigVal.get(i) ?? ''
     if (!name && !v) continue
     sigs.push(`${name} = ${v}`)
-    const n = name.toLowerCase()
-    if (n.includes('application name') && v) appName = v
-    if (n.includes('fault module name') || n.includes('module en erreur')) faultModule = v
-    if (n.includes('exception code')) exceptionCode = normCode(v)
+    const n = flat(name) // accent/apostrophe-insensitive — .wer labels are localized
+    if (
+      !faultModule &&
+      n.includes('module') &&
+      /fault|defaill|en erreur|en cause|fautif/.test(n) &&
+      /\.(dll|exe|asi|drv|sys)$/i.test(v)
+    ) {
+      faultModule = v
+    }
+    if (!exceptionCode && n.includes('exception') && n.includes('code')) {
+      exceptionCode = normCode(v)
+    }
   }
 
   const haystack = `${appName} ${kv.get('AppPath') ?? ''} ${sigs.join(' ')}`.toLowerCase()
@@ -88,7 +105,7 @@ async function parseWerFile(file: string): Promise<WerReport | null> {
 
   return {
     time: '', // filled from the report folder's mtime by the caller
-    appName: appName || 'GTA5.exe',
+    appName: /gta5|playgtav|\.exe/i.test(appName) ? appName : 'GTA5.exe',
     faultModule,
     exceptionCode,
     signatures: sigs,
@@ -125,11 +142,21 @@ async function readWerReports(since: Date): Promise<WerReport[]> {
         rep.time = new Date(mtime).toISOString()
         out.push(rep)
       }
-      if (out.length >= 8) break
+      if (out.length >= 20) break
     }
-    if (out.length >= 8) break
+    if (out.length >= 20) break
   }
-  return out.sort((a, b) => b.time.localeCompare(a.time))
+  // A crash loop leaves dozens of identical reports — keep one per signature.
+  const seen = new Set<string>()
+  const deduped: WerReport[] = []
+  for (const r of out.sort((a, b) => b.time.localeCompare(a.time))) {
+    const key = `${r.faultModule ?? ''}|${r.exceptionCode ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(r)
+    if (deduped.length >= 5) break
+  }
+  return deduped
 }
 
 /* ------------------------------------------------------------- event log --- */
@@ -157,6 +184,8 @@ function normCode(v: string | undefined): string | undefined {
 async function readCrashEvents(since: Date): Promise<CrashEvent[]> {
   const startIso = new Date(since.getTime() - 90_000).toISOString()
   const psScript = [
+    // Emit UTF-8 so accented event-log text survives the pipe (default is OEM).
+    '$OutputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8',
     "$ErrorActionPreference='SilentlyContinue'",
     `$evts = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=[datetime]'${startIso}'} -MaxEvents 150`,
     "$evts | Where-Object { $_.Message -match 'gta5|playgtav|grand theft auto|scripthook' } | ForEach-Object {",
@@ -243,9 +272,15 @@ async function readCrashEvents(since: Date): Promise<CrashEvent[]> {
     if (seen.has(key)) continue
     seen.add(key)
     deduped.push(e)
-    if (deduped.length >= 12) break
+    if (deduped.length >= 6) break
   }
   return deduped
+}
+
+/** Drop the WER (ID 1001) events when the structured Report.wer covers them. */
+function mergeCrashSources(crashEvents: CrashEvent[], werReports: WerReport[]): CrashEvent[] {
+  if (werReports.length === 0) return crashEvents
+  return crashEvents.filter((e) => !/error reporting/i.test(e.provider))
 }
 
 /* --------------------------------------------------------------- launch --- */
@@ -292,12 +327,13 @@ export async function launchGame(): Promise<LaunchReport> {
   const runningAtEnd = await isGameRunning()
   if (child && !runningAtEnd) child.unref()
 
-  const [crashEvents, werReports, logs, gameConfig] = await Promise.all([
+  const [rawCrash, werReports, logs, gameConfig] = await Promise.all([
     readCrashEvents(startedAt).catch(() => [] as CrashEvent[]),
     readWerReports(startedAt).catch(() => [] as WerReport[]),
     readDiagnostics(game.path, startedAt.toISOString()).catch(() => [] as LogFile[]),
     readGameConfigFiles(game.path).catch(() => [] as { name: string; text: string }[]),
   ])
+  const crashEvents = mergeCrashSources(rawCrash, werReports)
 
   const report: LaunchReport = {
     exe: name,
@@ -349,7 +385,7 @@ export async function recheckLastLaunch(): Promise<LaunchReport | null> {
   if (!prev) return null
   const gamePath = store.get('config').game?.path
   const since = new Date(prev.startedAt)
-  const [crashEvents, werReports, logs] = await Promise.all([
+  const [rawCrash, werReports, logs] = await Promise.all([
     readCrashEvents(since).catch(() => prev.crashEvents),
     readWerReports(since).catch(() => prev.werReports),
     gamePath
@@ -358,7 +394,7 @@ export async function recheckLastLaunch(): Promise<LaunchReport | null> {
   ])
   const merged: LaunchReport = {
     ...prev,
-    crashEvents,
+    crashEvents: mergeCrashSources(rawCrash, werReports),
     werReports,
     logs,
     stillRunning: await isGameRunning(),

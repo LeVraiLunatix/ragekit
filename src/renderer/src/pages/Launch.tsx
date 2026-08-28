@@ -14,6 +14,44 @@ import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
 import { Button, Card, Badge, EmptyState } from '@/components/ui'
 
+function Dot(): ReactNode {
+  return <span className="text-ink-faint/50">·</span>
+}
+
+function CrashRow({
+  label,
+  code,
+  at,
+  detail,
+  muted,
+}: {
+  label: string
+  code?: string
+  at: string
+  detail: string
+  muted?: boolean
+}): ReactNode {
+  return (
+    <li className="text-[12px]">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        <Bug className="size-3.5 shrink-0 text-bad" />
+        <span className={muted ? 'font-medium text-ink-soft' : 'font-medium text-bad'}>{label}</span>
+        {code && (
+          <>
+            <Dot />
+            <span className="font-mono text-[11px] text-ink-faint">{code}</span>
+          </>
+        )}
+        <Dot />
+        <span className="text-[10px] text-ink-faint">{at}</span>
+      </div>
+      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-bg/40 p-2 font-mono text-[10.5px] leading-relaxed text-ink-faint">
+        {detail}
+      </pre>
+    </li>
+  )
+}
+
 function LaunchReportCard({ report }: { report: LaunchReport }): ReactNode {
   const { t, relative } = useI18n()
   const [showOut, setShowOut] = useState(false)
@@ -76,60 +114,32 @@ function LaunchReportCard({ report }: { report: LaunchReport }): ReactNode {
         </p>
       )}
 
-      {werReports.length > 0 && (
-        <ul className="mt-3 space-y-2 border-t border-line pt-3">
+      {(werReports.length > 0 || crashEvents.length > 0) && (
+        <ul className="mt-3 space-y-2.5 border-t border-line pt-3">
           {werReports.map((w, i) => (
-            <li key={i} className="text-[12px]">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Bug className="size-3.5 shrink-0 text-bad" />
-                <span className="font-medium text-bad">
-                  {w.faultModule
-                    ? t('launch.faultingModule', { mod: w.faultModule })
-                    : `WER · ${w.appName}`}
-                </span>
-                {w.exceptionCode && (
-                  <span className="font-mono text-[11px] text-ink-faint">
-                    {t('launch.exceptionCode', { code: w.exceptionCode })}
-                  </span>
-                )}
-                <span className="text-[10px] text-ink-faint">
-                  {t('launch.eventAt', { time: relative(w.time) })}
-                </span>
-              </div>
-              <pre className="mt-0.5 overflow-x-auto whitespace-pre-wrap pl-5 font-mono text-[10.5px] leading-relaxed text-ink-faint">
-                {w.signatures.join('\n')}
-              </pre>
-            </li>
+            <CrashRow
+              key={`w${i}`}
+              label={
+                w.faultModule
+                  ? t('launch.faultingModule', { mod: w.faultModule })
+                  : `WER · ${w.appName}`
+              }
+              code={w.exceptionCode}
+              at={t('launch.eventAt', { time: relative(w.time) })}
+              detail={w.signatures.join('\n')}
+            />
           ))}
-        </ul>
-      )}
-
-      {crashEvents.length > 0 && (
-        <ul className="mt-3 space-y-2 border-t border-line pt-3">
           {crashEvents.map((e, i) => (
-            <li key={i} className="text-[12px]">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Bug className="size-3.5 shrink-0 text-bad" />
-                {e.faultingModule ? (
-                  <span className="font-medium text-bad">
-                    {t('launch.faultingModule', { mod: e.faultingModule })}
-                  </span>
-                ) : (
-                  <span className="font-medium text-ink-soft">{e.provider}</span>
-                )}
-                {e.exceptionCode && (
-                  <span className="font-mono text-[11px] text-ink-faint">
-                    {t('launch.exceptionCode', { code: e.exceptionCode })}
-                  </span>
-                )}
-                <span className="text-[10px] text-ink-faint">
-                  {t('launch.eventAt', { time: relative(e.time) })}
-                </span>
-              </div>
-              <p className="mt-0.5 whitespace-pre-wrap break-words pl-5 font-mono text-[10.5px] leading-relaxed text-ink-faint">
-                {e.summary}
-              </p>
-            </li>
+            <CrashRow
+              key={`c${i}`}
+              label={
+                e.faultingModule ? t('launch.faultingModule', { mod: e.faultingModule }) : e.provider
+              }
+              muted={!e.faultingModule}
+              code={e.exceptionCode}
+              at={t('launch.eventAt', { time: relative(e.time) })}
+              detail={e.summary}
+            />
           ))}
         </ul>
       )}
