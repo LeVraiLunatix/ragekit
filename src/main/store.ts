@@ -9,6 +9,7 @@ import type {
   VanillaSnapshot,
   VanillaIndex,
   LaunchReport,
+  ActivityEntry,
 } from '@shared/types'
 import { pathExists, movePath } from './mods/fsutil'
 
@@ -31,6 +32,8 @@ interface Schema {
   ngKeysPath: string
   /** Result of the last "Launch GTA V" attempt. */
   lastLaunch: LaunchReport | null
+  /** Recent reversible actions, newest first (capped). */
+  activity: ActivityEntry[]
 }
 
 const defaults: Schema = {
@@ -53,6 +56,7 @@ const defaults: Schema = {
   rpfAesKey: null,
   ngKeysPath: '',
   lastLaunch: null,
+  activity: [],
 }
 
 export const store = new Store<Schema>({ defaults, name: 'gtav-mod-manager' })

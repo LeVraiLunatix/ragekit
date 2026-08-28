@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
@@ -6,6 +6,7 @@ import { I18nProvider, useI18n } from '@/i18n'
 import { PromptProvider } from '@/components/PromptDialog'
 import { AdminBanner } from '@/components/AdminBanner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ActivityDrawer } from '@/components/ActivityDrawer'
 import { TitleBar } from '@/components/TitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
@@ -33,9 +34,11 @@ function OnlineSafeBanner(): ReactNode {
 function Shell(): ReactNode {
   const route = useAppStore((s) => s.route)
   const safe = useAppStore((s) => !!s.config?.onlineSafeMode)
+  const [activityOpen, setActivityOpen] = useState(false)
   return (
     <div className="flex h-full flex-col">
-      <TitleBar />
+      <TitleBar onActivity={() => setActivityOpen(true)} />
+      <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} />
       <AdminBanner />
       {safe && <OnlineSafeBanner />}
       <div className="flex min-h-0 flex-1">

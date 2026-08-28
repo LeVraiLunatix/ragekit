@@ -4,6 +4,7 @@ import type { AppConfig, FoundMod, GameInfo, LanguageCode, RemoteMod } from '@sh
 import { store, migrateDataDir } from './store'
 import { detectGame, validateGameFolder } from './game/detect'
 import { launchGame, getLastLaunch, recheckLastLaunch } from './launch'
+import { logActivity, listActivity, clearActivity, takeUndo } from './activity'
 import { dependencyStatus } from './mods/deps'
 import {
   listMods,
@@ -52,7 +53,10 @@ import {
   captureProfile,
   setProfileMods,
   applyProfile,
+  exportProfileData,
+  importProfileData,
 } from './profiles'
+import { promises as fsp } from 'node:fs'
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload)
@@ -126,6 +130,7 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.modsImportPaths, async (_e, paths: string[]) => {
     if (!paths?.length) return []
     const out = await importFromPaths(paths)
+    logActivity('import', out.map((r) => r.mod.id))
     broadcast(IPC.evtModsChanged, null)
     return out
   })
@@ -143,41 +148,69 @@ export function registerIpc(): void {
       }),
     )
     broadcast(IPC.evtTaskProgress, { taskId, label: 'Installed', progress: 1, done: true })
+    logActivity('install', [modId], { kind: 'disable', modIds: [modId] })
     broadcast(IPC.evtModsChanged, null)
     return mod
   })
 
   ipcMain.handle(IPC.modsUninstall, async (_e, modId: string) => {
     const mod = await guardGameWrite(() => uninstallMod(modId))
+    logActivity('uninstall', [modId], { kind: 'enable', modIds: [modId] })
     broadcast(IPC.evtModsChanged, null)
     return mod
   })
 
   ipcMain.handle(IPC.modsSetEnabled, async (_e, modId: string, enabled: boolean) => {
     const mod = await guardGameWrite(() => setEnabled(modId, enabled))
+    logActivity(enabled ? 'enable' : 'disable', [modId], {
+      kind: enabled ? 'disable' : 'enable',
+      modIds: [modId],
+    })
     broadcast(IPC.evtModsChanged, null)
     return mod
   })
 
   ipcMain.handle(IPC.modsSetAllEnabled, async (_e, enabled: boolean) => {
+    const before = listMods()
+      .filter((m) => (enabled ? m.status !== 'installed' : m.status === 'installed'))
+      .map((m) => m.id)
     const mods = await guardGameWrite(() => setAllEnabled(enabled))
+    logActivity(enabled ? 'bulkEnable' : 'bulkDisable', before, {
+      kind: enabled ? 'disable' : 'enable',
+      modIds: before,
+    })
     broadcast(IPC.evtModsChanged, null)
     return mods
   })
 
   ipcMain.handle(IPC.modsSetEnabledMany, async (_e, ids: string[], enabled: boolean) => {
     const mods = await guardGameWrite(() => setEnabledMany(ids, enabled))
+    logActivity(enabled ? 'bulkEnable' : 'bulkDisable', ids, {
+      kind: enabled ? 'disable' : 'enable',
+      modIds: ids,
+    })
     broadcast(IPC.evtModsChanged, null)
     return mods
   })
 
   ipcMain.handle(IPC.modsRemoveMany, async (_e, ids: string[]) => {
+    logActivity('remove', ids)
     await guardGameWrite(() => removeMany(ids))
     broadcast(IPC.evtModsChanged, null)
   })
 
   ipcMain.handle(IPC.modsRemove, async (_e, modId: string) => {
+    logActivity('remove', [modId])
     await removeMod(modId)
+    broadcast(IPC.evtModsChanged, null)
+  })
+
+  ipcMain.handle(IPC.activityList, () => listActivity())
+  ipcMain.handle(IPC.activityClear, () => clearActivity())
+  ipcMain.handle(IPC.activityUndo, async (_e, id: string) => {
+    const u = takeUndo(id)
+    if (!u) return
+    await guardGameWrite(() => setEnabledMany(u.modIds, u.kind === 'enable'))
     broadcast(IPC.evtModsChanged, null)
   })
 
@@ -207,8 +240,34 @@ export function registerIpc(): void {
     setProfileMods(id, modIds),
   )
   ipcMain.handle(IPC.profilesApply, async (_e, id: string) => {
+    const p = listProfiles().find((x) => x.id === id)
     await guardGameWrite(() => applyProfile(id))
+    if (p) logActivity('profileApply', p.enabledMods)
     broadcast(IPC.evtModsChanged, null)
+  })
+
+  ipcMain.handle(IPC.profilesExport, async (_e, id: string) => {
+    const data = exportProfileData(id)
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const res = await dialog.showSaveDialog(win!, {
+      defaultPath: `${data.name.replace(/[^\w.-]+/g, '_')}.ragekit.json`,
+      filters: [{ name: 'Ragekit profile', extensions: ['json'] }],
+    })
+    if (res.canceled || !res.filePath) return false
+    await fsp.writeFile(res.filePath, JSON.stringify(data, null, 2), 'utf8')
+    return true
+  })
+
+  ipcMain.handle(IPC.profilesImport, async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const res = await dialog.showOpenDialog(win!, {
+      properties: ['openFile'],
+      filters: [{ name: 'Ragekit profile', extensions: ['json'] }],
+    })
+    if (res.canceled || !res.filePaths[0]) return null
+    const raw = await fsp.readFile(res.filePaths[0], 'utf8')
+    const out = importProfileData(JSON.parse(raw))
+    return out
   })
 
   ipcMain.handle(IPC.modsOpenFolder, (_e, modId: string) => {
@@ -226,6 +285,7 @@ export function registerIpc(): void {
     const game = getConfig().game
     if (!game?.valid) throw new Error('Set a valid GTA V folder first.')
     const created = await guardGameWrite(() => adoptFound(game.path, items))
+    logActivity('adopt', created.map((m) => m.id))
     broadcast(IPC.evtModsChanged, null)
     return created
   })

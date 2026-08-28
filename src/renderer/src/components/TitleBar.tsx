@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Globe, Loader2, Play, ShieldCheck } from 'lucide-react'
+import { Globe, History, Loader2, Play, ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -70,7 +70,7 @@ function OnlineSafeToggle(): ReactNode {
   )
 }
 
-export function TitleBar(): ReactNode {
+export function TitleBar({ onActivity }: { onActivity: () => void }): ReactNode {
   const { t } = useI18n()
   const game = useAppStore((s) => s.config?.game ?? null)
 
@@ -86,6 +86,13 @@ export function TitleBar(): ReactNode {
         )}
       </div>
       <div className="flex-1" />
+      <button
+        onClick={onActivity}
+        title={t('activity.title')}
+        className="no-drag grid size-7 place-items-center rounded-md text-ink-faint transition-colors hover:bg-bg-hover hover:text-ink"
+      >
+        <History className="size-4" />
+      </button>
       <LaunchButton />
       <OnlineSafeToggle />
     </header>

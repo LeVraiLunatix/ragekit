@@ -157,6 +157,13 @@ if (typeof window !== 'undefined' && !window.api) {
         return p
       },
       apply: async () => {},
+      export: async () => false,
+      import: async () => null,
+    },
+    activity: {
+      list: async () => [],
+      undo: async () => {},
+      clear: async () => {},
     },
     deps: { status: async () => [] },
     diagnostics: { read: async () => [] },

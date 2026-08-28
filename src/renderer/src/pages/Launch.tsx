@@ -12,6 +12,7 @@ import type { LaunchReport } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
 import { Page } from '@/components/Page'
+import { BisectCard } from '@/components/BisectCard'
 import { Button, Card, Badge, EmptyState } from '@/components/ui'
 
 function Dot(): ReactNode {
@@ -232,6 +233,8 @@ export function LaunchPage(): ReactNode {
           }
         />
       )}
+
+      {game?.valid && <BisectCard />}
 
       <p className="mt-3 text-[11px] leading-relaxed text-ink-faint/80">{t('launch.hint')}</p>
     </Page>

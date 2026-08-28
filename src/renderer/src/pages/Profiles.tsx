@@ -12,6 +12,8 @@ import {
   Pencil,
   ShieldCheck,
   CircleCheck,
+  Download,
+  Upload,
 } from 'lucide-react'
 import type { Mod, Profile } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -329,6 +331,11 @@ function ProfileCard({ profile, locked }: { profile: Profile; locked: boolean })
               onClick: () => void run(() => window.api.profiles.duplicate(profile.id)),
             },
             {
+              label: t('profileIo.export'),
+              icon: <Download className="size-3.5" />,
+              onClick: () => void window.api.profiles.export(profile.id),
+            },
+            {
               label: t('profiles.rename'),
               icon: <Pencil className="size-3.5" />,
               onClick: () => {
@@ -496,24 +503,48 @@ function CurrentSetupBar({ onSave }: { onSave: () => void }): ReactNode {
 
 export function ProfilesPage(): ReactNode {
   const { t } = useI18n()
-  const { profiles, mods, config } = useAppStore()
+  const { profiles, mods, config, refreshProfiles } = useAppStore()
   const locked = !!config?.onlineSafeMode
   const [creator, setCreator] = useState<null | { fromCurrent: boolean }>(null)
+
+  const doImport = async (): Promise<void> => {
+    try {
+      const res = await window.api.profiles.import()
+      if (!res) return
+      await refreshProfiles()
+      alert(
+        res.missing.length
+          ? `${t('profileIo.imported', { name: res.profile.name })}\n${t('profileIo.missing', {
+              count: res.missing.length,
+              list: res.missing.join(', '),
+            })}`
+          : t('profileIo.imported', { name: res.profile.name }),
+      )
+    } catch {
+      alert(t('profileIo.badFile'))
+    }
+  }
 
   return (
     <Page
       title={t('profiles.title')}
       subtitle={t('profiles.subtitle')}
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={() => setCreator({ fromCurrent: true })}
-          disabled={mods.length === 0}
-        >
-          <Plus className="size-3.5" />
-          {t('profiles.new')}
-        </Button>
+        <>
+          <Button size="sm" variant="ghost" onClick={() => void doImport()}>
+            <Upload className="size-3.5" />
+            {t('profileIo.import')}
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => setCreator({ fromCurrent: true })}
+            disabled={mods.length === 0}
+          >
+            <Plus className="size-3.5" />
+            {t('profiles.new')}
+          </Button>
+        </>
       }
     >
       {locked && (

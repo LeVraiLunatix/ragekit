@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Profile } from '@shared/types'
+import type { Profile, ProfileExport } from '@shared/types'
 import { store } from './store'
 import { installMod, uninstallMod } from './mods/library'
 
@@ -82,6 +82,52 @@ export function setProfileMods(id: string, modIds: string[]): Profile {
   p.enabledMods = modIds.filter((m) => known.has(m))
   save(profiles)
   return p
+}
+
+/** Serialise a profile so it can be shared / re-imported elsewhere. */
+export function exportProfileData(id: string): ProfileExport {
+  const p = all().find((x) => x.id === id)
+  if (!p) throw new Error(`Unknown profile ${id}`)
+  const byId = new Map(store.get('mods').map((m) => [m.id, m]))
+  return {
+    ragekit: 1,
+    name: p.name,
+    mods: p.enabledMods
+      .map((mid) => byId.get(mid))
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map((m) => ({ name: m.name, sourceUrl: m.sourceUrl, version: m.version })),
+  }
+}
+
+/** Recreate a profile from an export, matching mods against the current library. */
+export function importProfileData(data: unknown): { profile: Profile; missing: string[] } {
+  const d = data as Partial<ProfileExport>
+  if (!d || d.ragekit !== 1 || !Array.isArray(d.mods) || typeof d.name !== 'string') {
+    throw new Error('Not a Ragekit profile file.')
+  }
+  const lib = store.get('mods')
+  const byName = new Map(lib.map((m) => [m.name.toLowerCase(), m.id]))
+  const byUrl = new Map(lib.filter((m) => m.sourceUrl).map((m) => [m.sourceUrl!, m.id]))
+
+  const enabledMods: string[] = []
+  const missing: string[] = []
+  for (const entry of d.mods) {
+    const id =
+      (entry.sourceUrl && byUrl.get(entry.sourceUrl)) || byName.get(entry.name.toLowerCase())
+    if (id) enabledMods.push(id)
+    else missing.push(entry.name)
+  }
+
+  const profiles = all()
+  const base = d.name.trim() || 'Imported'
+  const taken = new Set(profiles.map((p) => p.name))
+  let name = base
+  let n = 2
+  while (taken.has(name)) name = `${base} (${n++})`
+
+  const profile: Profile = { id: randomUUID(), name, enabledMods }
+  save([...profiles, profile])
+  return { profile, missing }
 }
 
 /** Install/uninstall the delta so the game matches this profile. */

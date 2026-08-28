@@ -4,6 +4,8 @@ import { existsSync, promises as fs } from 'node:fs'
 import { store, libraryDir, backupsDir, migrateDataDir } from './store'
 import { registerIpc } from './ipc'
 import { ensureCategories } from './mods/library'
+import { startGameWatch } from './watch'
+import { IPC } from '@shared/ipc'
 import type { LanguageCode } from '@shared/types'
 
 const isDev = !app.isPackaged
@@ -74,6 +76,12 @@ app.whenReady().then(async () => {
   await ensureCategories().catch((err) => console.error('category backfill failed:', err))
   registerIpc()
   createWindow()
+
+  const notifyModsChanged = (): void => {
+    for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.evtModsChanged, null)
+  }
+  startGameWatch(notifyModsChanged)
+  store.onDidChange('config', () => startGameWatch(notifyModsChanged))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

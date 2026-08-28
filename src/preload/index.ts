@@ -20,6 +20,7 @@ import type {
   OnlineStatus,
   NonVanillaScan,
   LaunchReport,
+  ActivityEntry,
 } from '@shared/types'
 
 export interface FileConflict {
@@ -83,6 +84,14 @@ const api = {
     setMods: (id: string, modIds: string[]): Promise<Profile> =>
       ipcRenderer.invoke(IPC.profilesSetMods, id, modIds),
     apply: (id: string): Promise<void> => ipcRenderer.invoke(IPC.profilesApply, id),
+    export: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.profilesExport, id),
+    import: (): Promise<{ profile: Profile; missing: string[] } | null> =>
+      ipcRenderer.invoke(IPC.profilesImport),
+  },
+  activity: {
+    list: (): Promise<ActivityEntry[]> => ipcRenderer.invoke(IPC.activityList),
+    undo: (id: string): Promise<void> => ipcRenderer.invoke(IPC.activityUndo, id),
+    clear: (): Promise<void> => ipcRenderer.invoke(IPC.activityClear),
   },
   deps: {
     status: (): Promise<DependencyStatus[]> => ipcRenderer.invoke(IPC.depsStatus),

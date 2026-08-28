@@ -87,6 +87,15 @@ export const IPC = {
   openExternal: 'misc:openExternal',
   openGameFolder: 'misc:openGameFolder',
 
+  // activity / undo
+  activityList: 'activity:list',
+  activityUndo: 'activity:undo',
+  activityClear: 'activity:clear',
+
+  // profiles import/export
+  profilesExport: 'profiles:export',
+  profilesImport: 'profiles:import',
+
   // events (main -> renderer)
   evtTaskProgress: 'evt:taskProgress',
   evtModsChanged: 'evt:modsChanged',

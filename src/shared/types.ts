@@ -108,6 +108,36 @@ export interface Profile {
   enabledMods: string[]
 }
 
+/** Portable profile — mods identified by name + source so they can be re-fetched. */
+export interface ProfileExport {
+  ragekit: 1
+  name: string
+  mods: Array<{ name: string; sourceUrl?: string; version?: string }>
+}
+
+export type ActivityKind =
+  | 'enable'
+  | 'disable'
+  | 'install'
+  | 'uninstall'
+  | 'remove'
+  | 'adopt'
+  | 'import'
+  | 'bulkEnable'
+  | 'bulkDisable'
+  | 'profileApply'
+
+/** One reversible-ish change, for the activity drawer. */
+export interface ActivityEntry {
+  id: string
+  at: string
+  kind: ActivityKind
+  modIds: string[]
+  modNames: string[]
+  /** Present when the action can be undone (and how). */
+  undo?: { kind: 'enable' | 'disable'; modIds: string[] }
+}
+
 export type LanguageCode = 'fr' | 'en' | 'es' | 'de'
 
 export interface AppConfig {

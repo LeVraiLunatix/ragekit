@@ -98,7 +98,11 @@ function ScanBanner(): ReactNode {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    if (config?.game?.valid) void window.api.mods.scan().then(setFound)
+    const rescan = (): void => {
+      if (config?.game?.valid) void window.api.mods.scan().then(setFound)
+    }
+    rescan()
+    return window.api.on.modsChanged(rescan) // live — the game folder is watched
   }, [config?.game?.valid])
 
   if (dismissed || found.length === 0) return null
