@@ -15,7 +15,8 @@ import { store, libraryDir, backupsDir } from '../store'
 import { classifyFile } from './classify'
 import { detectCategory } from './category'
 import { inferRequiredDeps, dependencyStatus } from './deps'
-import { readOivPackage, stageOivLooseFiles } from './oiv'
+import { parseOivPackage, stageOivLooseFiles } from './oiv'
+import { withOivZip } from './oivZip'
 import { applyOivPackage } from './oivInstall'
 import { walk, ensureDir, copyFile, copyDir, pathExists, removeFileAndPrune } from './fsutil'
 import { findDlcPacks, installDlcPacks, uninstallDlcPacks } from '../rpf/dlcpack'
@@ -92,16 +93,19 @@ async function importOiv(
 ): Promise<{ sourceDir: string; name: string; author?: string; version?: string; description?: string }> {
   const stored = join(modDir, 'package.oiv')
   await copyFile(src, stored)
-  const { zip, pkg } = await readOivPackage(stored)
   const staged = join(modDir, 'staged')
   await ensureDir(staged)
-  await stageOivLooseFiles(zip, pkg.looseOps, staged)
+  const metadata = await withOivZip(stored, async (z) => {
+    const pkg = await parseOivPackage(z)
+    await stageOivLooseFiles(z, pkg.looseOps, staged)
+    return pkg.metadata
+  })
   return {
     sourceDir: staged,
-    name: pkg.metadata.name,
-    author: pkg.metadata.author,
-    version: pkg.metadata.version,
-    description: pkg.metadata.description,
+    name: metadata.name,
+    author: metadata.author,
+    version: metadata.version,
+    description: metadata.description,
   }
 }
 
@@ -187,14 +191,16 @@ export async function installOiv(
 
   let meta: { name: string; author?: string; version?: string; description?: string }
   try {
-    const { zip, pkg } = await readOivPackage(stored)
-    await stageOivLooseFiles(zip, pkg.looseOps, sourceDir).catch(() => [])
-    meta = {
-      name: pkg.metadata.name,
-      author: pkg.metadata.author,
-      version: pkg.metadata.version,
-      description: pkg.metadata.description,
-    }
+    meta = await withOivZip(stored, async (z) => {
+      const pkg = await parseOivPackage(z)
+      await stageOivLooseFiles(z, pkg.looseOps, sourceDir).catch(() => [])
+      return {
+        name: pkg.metadata.name,
+        author: pkg.metadata.author,
+        version: pkg.metadata.version,
+        description: pkg.metadata.description,
+      }
+    })
   } catch (err) {
     await fs.rm(modDir, { recursive: true, force: true })
     throw err
@@ -252,7 +258,7 @@ export async function buildPlan(modId: string): Promise<InstallPlan> {
   const warnings: string[] = []
 
   if (mod.kind === 'oiv') {
-    const { pkg } = await readOivPackage(join(dirname(mod.sourceDir), 'package.oiv'))
+    const pkg = await parseOivPackage(join(dirname(mod.sourceDir), 'package.oiv'))
     for (const abs of await walk(mod.sourceDir)) {
       const rel = abs.slice(mod.sourceDir.length + 1).split('\\').join('/')
       files.push({

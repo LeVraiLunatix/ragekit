@@ -1,6 +1,4 @@
-import { promises as fs } from 'node:fs'
-import { join, dirname, normalize } from 'node:path'
-import AdmZip from 'adm-zip'
+import { join, normalize } from 'node:path'
 import { XMLParser } from 'fast-xml-parser'
 import type {
   OivContentOp,
@@ -9,7 +7,8 @@ import type {
   OivTarget,
   OivTargetChoice,
 } from '@shared/types'
-import { ensureDir, pathExists } from './fsutil'
+import { pathExists } from './fsutil'
+import { OivZip, withOivZip } from './oivZip'
 
 export interface OivMetadata {
   name: string
@@ -176,14 +175,7 @@ function flattenContent(node: Record<string, unknown>, chain: string[], ops: Oiv
   }
 }
 
-export async function readOivPackage(oivPath: string): Promise<{ zip: AdmZip; pkg: OivPackage }> {
-  const zip = new AdmZip(oivPath)
-  const entry =
-    zip.getEntry('assembly.xml') ??
-    zip.getEntries().find((e) => e.entryName.toLowerCase().endsWith('assembly.xml'))
-  if (!entry) throw new Error('Not a valid .oiv package: assembly.xml is missing.')
-
-  const xml = zip.readAsText(entry)
+function parseAssembly(xml: string): OivPackage {
   const doc = parser.parse(xml) as Record<string, unknown>
   const pkgNode = (doc.package ?? doc.Package) as Record<string, unknown> | undefined
   if (!pkgNode) throw new Error('Not a valid .oiv package: <package> root is missing.')
@@ -193,32 +185,40 @@ export async function readOivPackage(oivPath: string): Promise<{ zip: AdmZip; pk
   const content = pkgNode.content as Record<string, unknown> | undefined
   if (content) flattenContent(content, [], ops)
 
-  const archiveOps = ops.filter((o) => o.archiveChain.length > 0)
-  const looseOps = ops.filter((o) => o.archiveChain.length === 0)
+  return {
+    metadata,
+    ops,
+    archiveOps: ops.filter((o) => o.archiveChain.length > 0),
+    looseOps: ops.filter((o) => o.archiveChain.length === 0),
+  }
+}
 
-  return { zip, pkg: { metadata, ops, archiveOps, looseOps } }
+/** Parse the `assembly.xml` manifest of an already-open .oiv. */
+export async function parseOivPackage(zOrPath: OivZip | string): Promise<OivPackage> {
+  if (typeof zOrPath === 'string') return withOivZip(zOrPath, (z) => parseOivPackage(z))
+  const z = zOrPath
+  let name = z.names().find((n) => n.toLowerCase().replace(/\\/g, '/') === 'assembly.xml')
+  name ??= z.names().find((n) => n.toLowerCase().replace(/\\/g, '/').endsWith('/assembly.xml'))
+  if (!name) throw new Error('Not a valid .oiv package: assembly.xml is missing.')
+  const buf = await z.buffer(name)
+  if (!buf) throw new Error('Not a valid .oiv package: assembly.xml could not be read.')
+  return parseAssembly(buf.toString('utf8'))
 }
 
 /**
- * Extract the source files referenced by loose ops into a staging folder,
- * laid out at their final game-relative paths. Returns the staging dir.
+ * Extract the source files referenced by loose `add` ops into a staging folder,
+ * laid out at their final game-relative paths. Returns the relative paths written.
  */
 export async function stageOivLooseFiles(
-  zip: AdmZip,
+  z: OivZip,
   looseOps: OivOp[],
   stagingDir: string,
 ): Promise<string[]> {
   const written: string[] = []
   for (const op of looseOps) {
     if (op.kind !== 'add' || !op.source) continue
-    const src = op.source.replace(/\\/g, '/')
-    const entry =
-      zip.getEntry(src) ?? zip.getEntries().find((e) => e.entryName.replace(/\\/g, '/') === src)
-    if (!entry) continue
-    const dest = join(stagingDir, op.target)
-    await ensureDir(dirname(dest))
-    await fs.writeFile(dest, entry.getData())
-    written.push(op.target.replace(/\\/g, '/'))
+    const ok = await z.toFile(op.source, join(stagingDir, op.target)).catch(() => false)
+    if (ok) written.push(op.target.replace(/\\/g, '/'))
   }
   return written
 }
@@ -227,26 +227,26 @@ export async function stageOivLooseFiles(
 // Inspection — everything the OpenIV-style installer dialog needs
 // ---------------------------------------------------------------------------
 
-function findIcon(zip: AdmZip): string | undefined {
-  const entries = zip.getEntries().filter((e) => !e.isDirectory)
-  const rx = /(^|\/)icon\.(png|jpe?g|bmp|gif)$/i
-  const root = entries.find((e) => rx.test(e.entryName) && !e.entryName.replace(/^[^/]*$/, '').includes('/'))
-  const any = root ?? entries.find((e) => rx.test(e.entryName))
-  if (!any) return undefined
-  try {
-    const data = any.getData()
-    if (!data?.length || data.length > 512 * 1024) return undefined
-    const ext = any.entryName.toLowerCase().endsWith('.jpg') || any.entryName.toLowerCase().endsWith('.jpeg')
-      ? 'jpeg'
-      : any.entryName.toLowerCase().endsWith('.bmp')
-        ? 'bmp'
-        : any.entryName.toLowerCase().endsWith('.gif')
-          ? 'gif'
-          : 'png'
-    return `data:image/${ext};base64,${data.toString('base64')}`
-  } catch {
-    return undefined
-  }
+const ICON_RX = /(^|\/)icon\.(png|jpe?g|bmp|gif)$/i
+
+async function findIconDataUri(z: OivZip): Promise<string | undefined> {
+  const names = z.names().filter((n) => ICON_RX.test(n.replace(/\\/g, '/')))
+  if (!names.length) return undefined
+  // Prefer one at the package root.
+  names.sort((a, b) => a.split(/[\\/]/).length - b.split(/[\\/]/).length)
+  const pick = names[0]
+  if ((z.size(pick) ?? Infinity) > 512 * 1024) return undefined
+  const data = await z.buffer(pick).catch(() => null)
+  if (!data?.length) return undefined
+  const lower = pick.toLowerCase()
+  const ext = lower.endsWith('.jpg') || lower.endsWith('.jpeg')
+    ? 'jpeg'
+    : lower.endsWith('.bmp')
+      ? 'bmp'
+      : lower.endsWith('.gif')
+        ? 'gif'
+        : 'png'
+  return `data:image/${ext};base64,${data.toString('base64')}`
 }
 
 /** Vanilla RPFs that ship NG-encrypted — we can't safely rewrite these in place. */
@@ -284,17 +284,14 @@ function classifyOp(op: OivOp): OivContentOp {
 }
 
 export async function inspectOiv(oivPath: string, gamePath: string | null): Promise<OivInspection> {
-  const { zip, pkg } = await readOivPackage(oivPath)
-
-  // Attach source sizes where we can.
-  const sizeOf = (source?: string): number | undefined => {
-    if (!source) return undefined
-    const s = source.replace(/\\/g, '/')
-    const e = zip.getEntry(s) ?? zip.getEntries().find((x) => x.entryName.replace(/\\/g, '/') === s)
-    return e ? e.header.size : undefined
-  }
-
-  const ops: OivContentOp[] = pkg.ops.map((op) => ({ ...classifyOp(op), size: sizeOf(op.source) }))
+  const { pkg, ops, icon } = await withOivZip(oivPath, async (z) => {
+    const parsed = await parseOivPackage(z)
+    const classified: OivContentOp[] = parsed.ops.map((op) => ({
+      ...classifyOp(op),
+      size: op.source ? z.size(op.source) : undefined,
+    }))
+    return { pkg: parsed, ops: classified, icon: await findIconDataUri(z) }
+  })
 
   const counts = {
     add: ops.filter((o) => o.kind === 'add').length,
@@ -321,7 +318,7 @@ export async function inspectOiv(oivPath: string, gamePath: string | null): Prom
     authorLink: pkg.metadata.authorLink,
     version: pkg.metadata.version,
     description: pkg.metadata.description,
-    icon: findIcon(zip),
+    icon,
     ops,
     counts,
     supported: ops.filter((o) => o.supported).length,
