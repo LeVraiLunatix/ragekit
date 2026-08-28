@@ -34,6 +34,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Stable, version-less name so the website can link straight to the file:
+      # https://github.com/LeVraiLunatix/ragekit/releases/latest/download/Ragekit-Setup.exe
+      - name: Add a version-less installer alias
+        shell: bash
+        run: |
+          exe=$(ls release/*/*-setup.exe | head -1)
+          cp "$exe" "$(dirname "$exe")/Ragekit-Setup.exe"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -43,4 +51,5 @@ jobs:
           files: |
             release/**/*-setup.exe
             release/**/*-setup.exe.blockmap
+            release/**/Ragekit-Setup.exe
             release/**/latest.yml

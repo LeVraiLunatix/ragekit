@@ -1,6 +1,6 @@
 {
   "name": "ragekit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ragekit — a modern mod manager and RPF toolkit for Grand Theft Auto V (single-player).",
   "main": "./out/main/index.js",
   "author": "LeVraiLunatix",
