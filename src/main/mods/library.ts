@@ -13,7 +13,7 @@ import type {
 } from '@shared/types'
 import { store, libraryDir, backupsDir } from '../store'
 import { classifyFile } from './classify'
-import { detectCategory } from './category'
+import { detectCategory, CATEGORY_RULES_VERSION } from './category'
 import { inferRequiredDeps, dependencyStatus } from './deps'
 import { parseOivPackage, stageOivLooseFiles } from './oiv'
 import { withOivZip } from './oivZip'
@@ -39,15 +39,20 @@ export function listMods(): Mod[] {
   return getMods().sort((a, b) => a.loadOrder - b.loadOrder || a.name.localeCompare(b.name))
 }
 
-/** Fill in `category` for mods imported before that field existed. */
+/**
+ * Fill in `category` for mods imported before that field existed, and re-detect
+ * every mod's category whenever the detection rules change (CATEGORY_RULES_VERSION).
+ */
 export async function ensureCategories(): Promise<void> {
   const mods = getMods()
+  const stale = store.get('categoryRulesVersion') !== CATEGORY_RULES_VERSION
   let touched = false
   for (const m of mods) {
-    if (m.category) continue
+    if (m.category && !stale) continue
     m.category = await detectCategory(m.sourceDir, m.name).catch(() => 'other' as const)
     touched = true
   }
+  if (stale) store.set('categoryRulesVersion', CATEGORY_RULES_VERSION)
   if (touched) saveMods(mods)
 }
 

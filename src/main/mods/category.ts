@@ -10,7 +10,19 @@ import { walk } from './fsutil'
  * with the `m` flag, so `^`/`$` anchor per path segment / line.
  */
 
+/**
+ * Bump when the rules below change so `ensureCategories` re-runs detection for
+ * every mod (see store `categoryRulesVersion`).
+ */
+export const CATEGORY_RULES_VERSION = 2
+
 const RULES: Array<{ cat: ModCategory; re: RegExp }> = [
+  {
+    // Trainers / mod menus are scripts even though their asset folders look like
+    // vehicle/ped/weapon mods (Menyoo ships menyooStuff/Vehicles, /Peds, …).
+    cat: 'script',
+    re: /(^|\/)[^/\n]*(menyoo|trainer|modmenu|mod ?menu)[^/\n]*\.asi$|(^|\/)menyoo\.asi$|\bmenyoo\b|\b(simple ?trainer|enhanced ?native ?trainer|native ?trainer|lambda ?menu|kiddion|mod ?menu)\b/im,
+  },
   {
     cat: 'vehicle',
     re: /(^|\/)(vehicles|carvariations|carcols|handling|vehiclelayouts|vehiclemodelsets|caraddoncols)\.meta$|(^|\/)vehicles?\/|_hi\.yft$|vehicle_mods|addon ?cars?|\b(car|voiture|supercar|hypercar|bike|motorcycle|moto)\b/im,

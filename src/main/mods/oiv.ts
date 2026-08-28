@@ -1,5 +1,5 @@
 import { join, normalize } from 'node:path'
-import { XMLParser } from 'fast-xml-parser'
+import { XMLParser, XMLBuilder } from 'fast-xml-parser'
 import type {
   OivContentOp,
   OivInspection,
@@ -9,6 +9,7 @@ import type {
 } from '@shared/types'
 import { pathExists } from './fsutil'
 import { OivZip, withOivZip } from './oivZip'
+import type { OivTextEdit, OivXmlEdit } from './oivXmlEdit'
 
 export interface OivMetadata {
   name: string
@@ -27,6 +28,13 @@ export interface OivOp {
   target: string
   /** RPF archive chain this op lives inside, e.g. ["update\\update.rpf", "dlc.rpf"]. */
   archiveChain: string[]
+  /** For `xml-edit`: whether it's a <text> (line-based) or <xml> (element) block. */
+  editMode?: 'text' | 'xml'
+  /** For `xml-edit`: the parsed edit operations. */
+  textEdits?: OivTextEdit[]
+  xmlEdits?: OivXmlEdit[]
+  /** OpenIV `createIfNotExist` flag. */
+  createIfMissing?: boolean
 }
 
 export interface OivPackage {
@@ -44,6 +52,104 @@ const parser = new XMLParser({
   parseAttributeValue: false,
   trimValues: true,
 })
+
+/** Untrimmed parser for <text>/<xml> edit blocks — whitespace is significant. */
+const editParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  parseAttributeValue: false,
+  trimValues: false,
+  cdataPropName: '__cdata',
+})
+const fragBuilder = new XMLBuilder({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  suppressEmptyNode: true,
+})
+
+function nodeText(node: unknown): string {
+  if (node == null) return ''
+  if (typeof node === 'string') return node
+  if (typeof node === 'number') return String(node)
+  if (typeof node === 'object') {
+    const rec = node as Record<string, unknown>
+    if (typeof rec['__cdata'] === 'string') return rec['__cdata']
+    if ('#text' in rec) return String(rec['#text'])
+  }
+  return ''
+}
+
+function parseTextEdits(node: Record<string, unknown>): OivTextEdit[] {
+  const out: OivTextEdit[] = []
+  for (const a of asArray(node.add as unknown)) out.push({ op: 'add', value: nodeText(a) })
+  for (const r of asArray(node.replace as unknown)) {
+    const rec = (typeof r === 'object' && r ? r : {}) as Record<string, unknown>
+    out.push({
+      op: 'replace',
+      line: rec['@_line'] as string | undefined,
+      condition: rec['@_condition'] as string | undefined,
+      value: nodeText(r),
+    })
+  }
+  for (const i of asArray(node.insert as unknown)) {
+    const rec = (typeof i === 'object' && i ? i : {}) as Record<string, unknown>
+    out.push({
+      op: 'insert',
+      where: (rec['@_where'] as 'Before' | 'After' | undefined) ?? 'After',
+      line: rec['@_line'] as string | undefined,
+      condition: rec['@_condition'] as string | undefined,
+      value: nodeText(i),
+    })
+  }
+  for (const d of asArray(node.delete as unknown)) {
+    const rec = (typeof d === 'object' && d ? d : {}) as Record<string, unknown>
+    out.push({
+      op: 'delete',
+      condition: rec['@_condition'] as string | undefined,
+      value: nodeText(d),
+    })
+  }
+  return out
+}
+
+function buildFragment(node: unknown): string {
+  if (node == null) return ''
+  if (typeof node === 'string') return node
+  const rec = { ...(node as Record<string, unknown>) }
+  delete rec['@_xpath']
+  delete rec['@_append']
+  delete rec['#text']
+  delete rec['__cdata']
+  const raw = nodeText(node).trim()
+  try {
+    const s = fragBuilder.build(rec).trim()
+    return s || raw
+  } catch {
+    return raw
+  }
+}
+
+function parseXmlEdits(node: Record<string, unknown>): OivXmlEdit[] {
+  const out: OivXmlEdit[] = []
+  for (const a of asArray(node.add as unknown)) {
+    const rec = (typeof a === 'object' && a ? a : {}) as Record<string, unknown>
+    out.push({
+      op: 'add',
+      xpath: (rec['@_xpath'] as string) ?? '',
+      append: rec['@_append'] as string | undefined,
+      fragment: buildFragment(a),
+    })
+  }
+  for (const r of asArray(node.replace as unknown)) {
+    const rec = (typeof r === 'object' && r ? r : {}) as Record<string, unknown>
+    out.push({ op: 'replace', xpath: (rec['@_xpath'] as string) ?? '', fragment: buildFragment(r) })
+  }
+  for (const r of asArray(node.remove as unknown)) {
+    const rec = (typeof r === 'object' && r ? r : {}) as Record<string, unknown>
+    out.push({ op: 'remove', xpath: (rec['@_xpath'] as string) ?? '' })
+  }
+  return out
+}
 
 function asArray<T>(v: T | T[] | undefined): T[] {
   if (v == null) return []
@@ -134,35 +240,59 @@ function parseMetadata(meta: Record<string, unknown> | undefined): OivMetadata {
   }
 }
 
-const clean = (p: string): string => normalize(p).replace(/^[\\/]+/, '').replace(/\\/g, '/')
+const clean = (p: string): string =>
+  normalize(p.trim()).replace(/^[\\/]+/, '').replace(/\\/g, '/')
 
 function flattenContent(node: Record<string, unknown>, chain: string[], ops: OivOp[]): void {
   for (const add of asArray(node.add as unknown)) {
     if (typeof add === 'object' && add != null) {
       const rec = add as Record<string, unknown>
       const target = textOf(rec) ?? String(rec['#text'] ?? '')
+      if (!target.trim()) continue
       ops.push({
         kind: 'add',
         source: rec['@_source'] as string | undefined,
         target: clean(target),
         archiveChain: [...chain],
       })
-    } else if (typeof add === 'string') {
+    } else if (typeof add === 'string' && add.trim()) {
       ops.push({ kind: 'add', target: clean(add), archiveChain: [...chain] })
     }
   }
 
   for (const del of asArray(node.delete as unknown)) {
     const target = textOf(del) ?? (typeof del === 'string' ? del : '')
-    if (target) ops.push({ kind: 'delete', target: clean(target), archiveChain: [...chain] })
+    if (target.trim()) ops.push({ kind: 'delete', target: clean(target), archiveChain: [...chain] })
   }
 
-  // <text path="…"> … XML edit fragments … </text>
+  // <text path="…"> line edits, and <xml path="…"> element edits
   for (const txt of asArray(node.text as unknown)) {
     if (typeof txt === 'object' && txt != null) {
       const rec = txt as Record<string, unknown>
       const path = (rec['@_path'] as string | undefined) ?? ''
-      if (path) ops.push({ kind: 'xml-edit', target: clean(path), archiveChain: [...chain] })
+      if (!path) continue
+      ops.push({
+        kind: 'xml-edit',
+        target: clean(path),
+        archiveChain: [...chain],
+        editMode: 'text',
+        textEdits: parseTextEdits(rec),
+        createIfMissing: /^true$/i.test(String(rec['@_createIfNotExist'] ?? '')),
+      })
+    }
+  }
+  for (const x of asArray(node.xml as unknown)) {
+    if (typeof x === 'object' && x != null) {
+      const rec = x as Record<string, unknown>
+      const path = (rec['@_path'] as string | undefined) ?? ''
+      if (!path) continue
+      ops.push({
+        kind: 'xml-edit',
+        target: clean(path),
+        archiveChain: [...chain],
+        editMode: 'xml',
+        xmlEdits: parseXmlEdits(rec),
+      })
     }
   }
 
@@ -176,11 +306,13 @@ function flattenContent(node: Record<string, unknown>, chain: string[], ops: Oiv
 }
 
 function parseAssembly(xml: string): OivPackage {
-  const doc = parser.parse(xml) as Record<string, unknown>
+  const metaDoc = parser.parse(xml) as Record<string, unknown>
+  const metaPkg = (metaDoc.package ?? metaDoc.Package) as Record<string, unknown> | undefined
+  const doc = editParser.parse(xml) as Record<string, unknown>
   const pkgNode = (doc.package ?? doc.Package) as Record<string, unknown> | undefined
-  if (!pkgNode) throw new Error('Not a valid .oiv package: <package> root is missing.')
+  if (!pkgNode || !metaPkg) throw new Error('Not a valid .oiv package: <package> root is missing.')
 
-  const metadata = parseMetadata(pkgNode.metadata as Record<string, unknown> | undefined)
+  const metadata = parseMetadata(metaPkg.metadata as Record<string, unknown> | undefined)
   const ops: OivOp[] = []
   const content = pkgNode.content as Record<string, unknown> | undefined
   if (content) flattenContent(content, [], ops)
@@ -259,7 +391,10 @@ function classifyOp(op: OivOp): OivContentOp {
   }
 
   if (op.kind === 'xml-edit') {
-    return { ...base, reason: 'in-place XML edit — not supported yet' }
+    const n = (op.textEdits?.length ?? 0) + (op.xmlEdits?.length ?? 0)
+    return n > 0
+      ? { ...base, supported: true }
+      : { ...base, reason: 'in-place XML edit — could not read the operations' }
   }
   if (!archive) {
     // Loose file — fully supported. `add` maps to add/replace at apply time.

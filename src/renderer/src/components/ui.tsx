@@ -116,11 +116,12 @@ export function Toggle({
       )}
     >
       <motion.span
-        layout
-        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+        initial={false}
+        animate={{ x: checked ? 16 : 0 }}
+        transition={{ type: 'spring', stiffness: 550, damping: 34 }}
         className={cn(
-          'absolute top-1/2 size-4 -translate-y-1/2 rounded-full shadow-sm',
-          checked ? 'left-[18px] bg-black' : 'left-[3px] bg-ink-faint',
+          'absolute left-[3px] top-[3px] size-4 rounded-full shadow-sm',
+          checked ? 'bg-black' : 'bg-ink-faint',
         )}
       />
     </button>

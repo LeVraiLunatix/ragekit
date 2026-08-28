@@ -34,6 +34,8 @@ interface Schema {
   lastLaunch: LaunchReport | null
   /** Recent reversible actions, newest first (capped). */
   activity: ActivityEntry[]
+  /** Category-detection rules version the stored mod categories were computed with. */
+  categoryRulesVersion: number
 }
 
 const defaults: Schema = {
@@ -57,6 +59,7 @@ const defaults: Schema = {
   ngKeysPath: '',
   lastLaunch: null,
   activity: [],
+  categoryRulesVersion: 0,
 }
 
 export const store = new Store<Schema>({ defaults, name: 'gtav-mod-manager' })

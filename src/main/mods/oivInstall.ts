@@ -1,6 +1,8 @@
 import { join, relative, dirname, basename, sep } from 'node:path'
+import { promises as fsp } from 'node:fs'
 import type { OivOpResult, OivTarget } from '@shared/types'
 import { parseOivPackage, oivBaseDir, type OivOp } from './oiv'
+import { applyTextEdits, applyXmlEdits } from './oivXmlEdit'
 import { withOivZip, type OivZip } from './oivZip'
 import { ensureDir, copyFile, pathExists, removeFileAndPrune } from './fsutil'
 import { loadAesKey } from '../rpf/crypto'
@@ -9,6 +11,19 @@ import { Rpf7, type RpfMutation, type RpfKeys } from '../rpf/rpf7'
 
 const slash = (p: string): string => p.split(sep).join('/')
 const lower = (p: string): string => p.replace(/\\/g, '/').toLowerCase()
+
+/** Run an xml-edit op's text/xml edits on `text`. Returns null if nothing changed. */
+function applyEdits(op: OivOp, text: string): string | null {
+  if (op.editMode === 'xml' && op.xmlEdits?.length) {
+    const r = applyXmlEdits(text, op.xmlEdits)
+    return r.applied > 0 ? r.xml : null
+  }
+  if (op.textEdits?.length) {
+    const out = applyTextEdits(text, op.textEdits)
+    return out === text ? null : out
+  }
+  return null
+}
 
 /**
  * Edit inside a nested `.rpf` (or deeper). `chain[0]` is a direct child of
@@ -86,8 +101,9 @@ export interface OivApplyResult {
  *   common.rpf) are decrypted to OPEN in place once, then a single rebuild per
  *   archive applies every replacement and every brand-new file (entry table and
  *   name table regenerated). A whole-archive backup is taken first.
- * - Still deferred: nested archives, replacing a resource (.ytd/.yft…) inside a
- *   .rpf, deletes inside a .rpf, and in-place XML edits — reported as skipped.
+ * - `<text>` / `<xml>` edits are applied to the target file (read from the
+ *   archive, patched line- or element-wise, written back as a replacement).
+ * - Still deferred: deletes inside a .rpf.
  */
 export async function applyOivPackage(
   storedOivPath: string,
@@ -119,8 +135,40 @@ export async function applyOivPackage(
       onProgress?.(done, total, op.target)
       done++
       try {
+        // ── in-place XML/text edit ─────────────────────────────────────────
         if (op.kind === 'xml-edit') {
-          results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'in-place XML edit — not supported yet' })
+          if (!(op.textEdits?.length || op.xmlEdits?.length)) {
+            results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'no edit operations found' })
+            continue
+          }
+          if (archive) {
+            if (target !== 'mods') {
+              results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'install to the mods folder to edit files inside a .rpf' })
+              continue
+            }
+            const list = archiveGroups.get(op.archiveChain[0]) ?? []
+            list.push(op)
+            archiveGroups.set(op.archiveChain[0], list)
+            continue
+          }
+          // loose text/xml file
+          const dest = join(base, op.target)
+          let text = ''
+          if (await pathExists(dest)) text = await fsp.readFile(dest, 'utf8')
+          else if (!op.createIfMissing) {
+            results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'target file not found' })
+            continue
+          }
+          const edited = applyEdits(op, text)
+          if (edited == null) {
+            results.push({ target: op.target, archive, kind: 'xml-edit', status: 'skipped', detail: 'edits did not match anything' })
+            continue
+          }
+          await backup(dest).catch(() => {})
+          await ensureDir(dirname(dest))
+          await fsp.writeFile(dest, edited, 'utf8')
+          written.add(slash(relative(gamePath, dest)))
+          results.push({ target: op.target, archive, kind: 'xml-edit', status: 'applied' })
           continue
         }
 
@@ -183,7 +231,7 @@ export async function applyOivPackage(
     for (const [archiveRel, ops] of archiveGroups) {
       const archiveFs = join(base, archiveRel)
       const push = (op: OivOp, status: OivOpResult['status'], detail?: string): void => {
-        results.push({ target: op.target, archive: op.archiveChain.join('/'), kind: 'replace', status, detail })
+        results.push({ target: op.target, archive: op.archiveChain.join('/'), kind: op.kind === 'xml-edit' ? 'xml-edit' : 'replace', status, detail })
       }
       try {
         // The archive must live in mods/. If it doesn't, pull the vanilla copy
@@ -231,7 +279,7 @@ export async function applyOivPackage(
         // ── nested-archive ops: rebuild the inner .rpf in memory ─────────────
         const nestedGroups = new Map<string, OivOp[]>()
         for (const op of ops.filter((o) => o.archiveChain.length > 1)) {
-          const key = op.archiveChain.slice(1).join(' ')
+          const key = op.archiveChain.slice(1).join('')
           nestedGroups.set(key, [...(nestedGroups.get(key) ?? []), op])
         }
         for (const [, nOps] of nestedGroups) {
@@ -256,6 +304,29 @@ export async function applyOivPackage(
 
         // ── direct ops on this archive ──────────────────────────────────────
         for (const op of ops.filter((o) => o.archiveChain.length === 1)) {
+          if (op.kind === 'xml-edit') {
+            const inner = rpf.get(op.target)
+            if (!inner) {
+              push(op, 'skipped', `${op.target} not found in ${archiveRel}`)
+              continue
+            }
+            let text: string
+            try {
+              text = (await rpf.readFile(op.target)).toString('utf8')
+            } catch (e) {
+              push(op, 'failed', e instanceof Error ? e.message : String(e))
+              continue
+            }
+            const edited = applyEdits(op, text)
+            if (edited == null) {
+              push(op, 'skipped', 'edits did not match anything in ' + basename(op.target))
+              continue
+            }
+            const path = lower(inner.path)
+            mutations.push({ op: 'replace', path, content: Buffer.from(edited, 'utf8') })
+            staged.push({ op, path })
+            continue
+          }
           const inner = rpf.get(op.target)
           if (inner?.isDir) { push(op, 'skipped', `${op.target} is a folder in ${archiveRel}`); continue }
           const buf = op.source ? await extract(zip, op.source) : null
