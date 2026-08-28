@@ -18,35 +18,75 @@ if (typeof window !== 'undefined' && !window.api) {
   }
   const noop = (): void => {}
   const mockLaunch = {
-    exe: 'GTA5.exe',
+    exe: 'PlayGTAV.exe',
     pid: 12345,
     startedAt: new Date().toISOString(),
-    exitCode: 3221225477,
+    exitCode: 0,
     signal: null,
     spawnError: null,
     stillRunning: false,
-    durationMs: 2400,
+    durationMs: 18400,
     stdout: '',
     stderr: '',
     crashEvents: [
       {
         time: new Date().toISOString(),
-        id: 1000,
-        provider: 'Application Error',
-        faultingModule: 'ScriptHookV.dll',
-        exceptionCode: '0xc0000005',
+        id: 1001,
+        provider: 'Windows Error Reporting',
+        faultingModule: 'ntdll.dll',
+        exceptionCode: '0xc00000fd (stack overflow)',
         summary:
-          'Nom de l’application défaillante GTA5.exe · Nom du module défaillant : ScriptHookV.dll · Code d’exception : 0xc0000005',
+          'Nom d’événement : APPCRASH · P1 : GTA5.exe · P2 : 1.0.3889.0 · P4 : ntdll.dll · P7 : c00000fd',
+      },
+      {
+        time: new Date(Date.now() - 4000).toISOString(),
+        id: 1001,
+        provider: 'Windows Error Reporting',
+        faultingModule: 'ntdll.dll',
+        exceptionCode: '0xc0000005 (access violation)',
+        summary: 'Nom d’événement : APPCRASH · P1 : GTA5.exe · P4 : ntdll.dll · P7 : c0000005',
+      },
+    ],
+    werReports: [
+      {
+        time: new Date().toISOString(),
+        appName: 'GTA5.exe',
+        faultModule: 'GTAV.HeapAdjuster.asi',
+        exceptionCode: 'c0000005',
+        signatures: [
+          'Application Name = GTA5.exe',
+          'Application Version = 1.0.3889.0',
+          'Fault Module Name = GTAV.HeapAdjuster.asi',
+          'Exception Code = c0000005',
+        ],
       },
     ],
     logs: [
       {
         name: 'ScriptHookV.log',
         mtimeMs: Date.now(),
-        errors: 1,
+        errors: 0,
         warns: 0,
-        entries: [{ level: 'error' as const, text: 'Could not load module' }],
+        stale: false,
+        entries: [],
+        raw: '// GTA V SCRIPT HOOK (build Jul 15 2026, v3889.0)\n[01:56:31] INIT: Started\n[01:56:31] INIT: Success, game version is VER_1_0_3889_0\n[01:56:31] INIT: Registering script \'Menyoo.asi\'\n[01:56:32] INIT: Registering script \'shadows.asi\'',
       },
+      {
+        name: 'ScriptHookVDotNet.log',
+        mtimeMs: Date.now() - 90_000_000,
+        errors: 1,
+        warns: 1,
+        stale: true,
+        entries: [
+          { level: 'error' as const, text: "Failed to load config: ScriptHookVDotNet.ini introuvable" },
+          { level: 'warn' as const, text: 'Failed to reload scripts because the scripts directory is missing.' },
+        ],
+        raw: '[04:01:27] [ERROR] Failed to load config: ScriptHookVDotNet.ini introuvable\n[04:01:28] [WARNING] scripts directory is missing.',
+      },
+    ],
+    gameConfig: [
+      { name: 'commandline.txt', text: '-ignoreDifferentVideoCard' },
+      { name: 'args.txt', text: '-nobattleye -noBE' },
     ],
   }
   let mockProfiles: Array<{ id: string; name: string; enabledMods: string[] }> = []

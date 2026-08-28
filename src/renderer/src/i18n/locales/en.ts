@@ -145,6 +145,9 @@ export const en = {
     errors_other: '{count} errors',
     warns_one: '{count} warning',
     warns_other: '{count} warnings',
+    stale: 'not updated',
+    showIssues: 'issues only',
+    showAll: 'full log',
   },
   launch: {
     button: 'Launch GTA V',
@@ -162,6 +165,7 @@ export const en = {
     exceptionCode: 'exception {code}',
     eventAt: 'Windows event {time}',
     output: 'Process output',
+    gameConfig: 'Launch config',
   },
   add: {
     title: 'Add mods',

@@ -147,6 +147,9 @@ export const de: Dict = {
     errors_other: '{count} Fehler',
     warns_one: '{count} Warnung',
     warns_other: '{count} Warnungen',
+    stale: 'nicht aktualisiert',
+    showIssues: 'nur Probleme',
+    showAll: 'ganzes Log',
   },
   launch: {
     button: 'GTA V starten',
@@ -164,6 +167,7 @@ export const de: Dict = {
     exceptionCode: 'Ausnahme {code}',
     eventAt: 'Windows-Ereignis {time}',
     output: 'Prozessausgabe',
+    gameConfig: 'Start-Konfiguration',
   },
   add: {
     title: 'Mods hinzufügen',

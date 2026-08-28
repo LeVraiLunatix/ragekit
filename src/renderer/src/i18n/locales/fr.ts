@@ -148,6 +148,9 @@ export const fr: Dict = {
     errors_other: '{count} erreurs',
     warns_one: '{count} avertissement',
     warns_other: '{count} avertissements',
+    stale: 'pas mis à jour',
+    showIssues: 'erreurs seules',
+    showAll: 'log complet',
   },
   launch: {
     button: 'Lancer GTA V',
@@ -165,6 +168,7 @@ export const fr: Dict = {
     exceptionCode: 'exception {code}',
     eventAt: 'événement Windows {time}',
     output: 'Sortie du processus',
+    gameConfig: 'Config de lancement',
   },
   add: {
     title: 'Ajouter des mods',

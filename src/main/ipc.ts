@@ -252,7 +252,7 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.diagnosticsRead, () => {
     const game = getConfig().game
     if (!game?.valid) return []
-    return readDiagnostics(game.path)
+    return readDiagnostics(game.path, getLastLaunch()?.startedAt)
   })
 
   ipcMain.handle(IPC.integrityTake, () => {

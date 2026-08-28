@@ -267,7 +267,11 @@ export interface LaunchReport {
   stdout: string
   stderr: string
   crashEvents: CrashEvent[]
+  /** GTA5 crashes recovered from Windows Error Reporting — names the fault module. */
+  werReports: WerReport[]
   logs: LogFile[]
+  /** Contents of the game's launch-config files, if present. */
+  gameConfig: { name: string; text: string }[]
 }
 
 export type LogLevel = 'error' | 'warn' | 'info'
@@ -283,6 +287,20 @@ export interface LogFile {
   errors: number
   warns: number
   entries: LogEntry[]
+  /** Last lines of the file, verbatim (capped). */
+  raw: string
+  /** True when the file predates the launch we're diagnosing (tool didn't run / crashed early). */
+  stale?: boolean
+}
+
+/** A Windows Error Reporting record for a GTA5 crash (Report.wer). */
+export interface WerReport {
+  time: string
+  appName: string
+  faultModule?: string
+  exceptionCode?: string
+  /** "Fault Module Name = X", "Exception Code = Y", … */
+  signatures: string[]
 }
 
 /** Generic progress event streamed from long-running main-process tasks. */
