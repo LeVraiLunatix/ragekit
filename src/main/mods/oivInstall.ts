@@ -4,11 +4,10 @@ import { parseOivPackage, oivBaseDir, type OivOp } from './oiv'
 import { withOivZip, type OivZip } from './oivZip'
 import { ensureDir, copyFile, pathExists, removeFileAndPrune } from './fsutil'
 import { loadAesKey } from '../rpf/crypto'
+import { loadNgKeys } from '../rpf/ngkeys'
 import { Rpf7 } from '../rpf/rpf7'
 
 const slash = (p: string): string => p.split(sep).join('/')
-/** Vanilla archives shipped NG-encrypted — not yet writable (needs NG→OPEN convert). */
-const NG_ARCHIVE = /(^|\/)(update\.rpf|common\.rpf|x64[a-z]?\.rpf)$/i
 
 export interface OivApplyResult {
   results: OivOpResult[]
@@ -20,13 +19,13 @@ export interface OivApplyResult {
  * Apply an .oiv package into the chosen base folder.
  *
  * - Loose files: copied / deleted with per-file backups (fully reversible).
- * - `<add>` into an OPEN/AES .rpf that already lives in the mods folder: applied
- *   by rebuilding the archive in place (same-name replacement only), with a
- *   whole-archive backup taken first. All ops for one archive are batched into a
- *   single rebuild.
- * - Still deferred: NG-encrypted vanilla archives (update.rpf, x64*.rpf,
- *   common.rpf), nested archives, brand-new files inside a .rpf, and in-place
- *   XML edits — reported as skipped.
+ * - `<add>` into a level-1 .rpf (target = mods folder): the archive is pulled
+ *   into mods/ if missing, NG-encrypted vanilla archives (update.rpf, x64*.rpf,
+ *   common.rpf) are decrypted to OPEN in place once, then a single rebuild
+ *   applies every same-name replacement for that archive. A whole-archive backup
+ *   is taken first.
+ * - Still deferred: nested archives, brand-new files inside a .rpf, deletes
+ *   inside a .rpf, and in-place XML edits — reported as skipped.
  */
 export async function applyOivPackage(
   storedOivPath: string,
@@ -103,7 +102,6 @@ export async function applyOivPackage(
         if (target !== 'mods') { skip('install to the mods folder to apply archive changes'); continue }
         if (op.archiveChain.length > 1) { skip(`nested archive (${archive}) — not supported yet`); continue }
         if (op.kind === 'delete') { skip(`deletes inside ${archive} — not supported yet`); continue }
-        if (NG_ARCHIVE.test(op.archiveChain[0])) { skip(`${op.archiveChain[0]} is NG-encrypted — not supported yet`); continue }
         const list = archiveGroups.get(op.archiveChain[0]) ?? []
         list.push(op)
         archiveGroups.set(op.archiveChain[0], list)
@@ -120,28 +118,47 @@ export async function applyOivPackage(
 
     // ── batched archive rebuilds ─────────────────────────────────────────────
     let aesKey: Buffer | null | undefined
+    let ngKeys: Awaited<ReturnType<typeof loadNgKeys>> | undefined
     for (const [archiveRel, ops] of archiveGroups) {
       const archiveFs = join(base, archiveRel)
       const push = (op: OivOp, status: OivOpResult['status'], detail?: string): void => {
         results.push({ target: op.target, archive: op.archiveChain.join('/'), kind: 'replace', status, detail })
       }
       try {
+        // The archive must live in mods/. If it doesn't, pull the vanilla copy
+        // from the game folder (what you'd otherwise do by hand in OpenIV).
         if (!(await pathExists(archiveFs))) {
-          for (const op of ops) push(op, 'skipped', `copy ${archiveRel} into your mods folder first (Game files tab)`)
-          continue
+          const vanilla = join(gamePath, archiveRel)
+          if (!(await pathExists(vanilla))) {
+            for (const op of ops) push(op, 'skipped', `${archiveRel} not found in the game folder`)
+            continue
+          }
+          onProgress?.(total, total, `Copying ${archiveRel} into mods…`)
+          await copyFile(vanilla, archiveFs)
         }
         if (aesKey === undefined) aesKey = await loadAesKey(gamePath).catch(() => null)
+        if (ngKeys === undefined) ngKeys = await loadNgKeys(gamePath).catch(() => null)
+
         let rpf: Rpf7
         try {
-          rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: null })
+          rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys ?? null })
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err)
-          for (const op of ops) push(op, 'skipped', /NG/.test(msg) ? `${archiveRel} is NG-encrypted — not supported yet` : msg)
+          for (const op of ops) push(op, 'skipped', err instanceof Error ? err.message : String(err))
           continue
         }
+
+        // NG (vanilla) archive → decrypt it to OPEN once, in place, then reopen.
         if (rpf.encryption === 'NG') {
-          for (const op of ops) push(op, 'skipped', `${archiveRel} is NG-encrypted — not supported yet`)
-          continue
+          if (!ngKeys) {
+            for (const op of ops) push(op, 'skipped', `${archiveRel} is NG-encrypted and NG keys aren't loaded (Settings › NG keys)`)
+            continue
+          }
+          await backup(archiveFs)
+          onProgress?.(total, total, `Converting ${archiveRel} to an editable copy…`)
+          await rpf.convertToOpen(archiveFs, (d, t) =>
+            onProgress?.(total, total, `Converting ${archiveRel} — ${Math.round((d / Math.max(t, 1)) * 100)}%`),
+          )
+          rpf = await Rpf7.open(archiveFs, { aes: aesKey ?? null, ng: ngKeys })
         }
 
         const replaceMap = new Map<string, Buffer>()

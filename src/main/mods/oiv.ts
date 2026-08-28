@@ -249,9 +249,6 @@ async function findIconDataUri(z: OivZip): Promise<string | undefined> {
   return `data:image/${ext};base64,${data.toString('base64')}`
 }
 
-/** Vanilla RPFs that ship NG-encrypted — we can't safely rewrite these in place. */
-const NG_ARCHIVE = /(^|\/)(update\.rpf|common\.rpf|x64[a-z]?\.rpf)$/i
-
 function classifyOp(op: OivOp): OivContentOp {
   const archive = op.archiveChain.join('/')
   const base: OivContentOp = {
@@ -275,11 +272,8 @@ function classifyOp(op: OivOp): OivContentOp {
   if (op.archiveChain.length > 1) {
     return { ...base, kind: 'replace', reason: `nested archive (${archive}) — not supported yet` }
   }
-  if (NG_ARCHIVE.test(op.archiveChain[0])) {
-    return { ...base, kind: 'replace', reason: `${op.archiveChain[0]} is NG-encrypted — not supported yet` }
-  }
-  // Single-level, non-NG archive: same-name replacement is applied by rebuilding
-  // the archive (only when installed to the mods folder, archive already there).
+  // Single-level archive, same-name replacement: applied to the mods folder by
+  // rebuilding the archive (NG vanilla archives are decrypted to OPEN first).
   return { ...base, kind: 'replace', supported: true }
 }
 

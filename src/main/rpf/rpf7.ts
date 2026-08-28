@@ -456,12 +456,175 @@ export class Rpf7 {
       await srcFd.close()
     }
   }
+
+  /**
+   * Decrypt every entry of an NG-encrypted archive and write it out as an OPEN
+   * (unencrypted) archive — the same thing OpenIV does when you save into the
+   * mods folder. The tree, the name table and every entry index are kept; only
+   * the encryption is stripped so the archive becomes writable by {@link rebuild}
+   * without an NG-encrypt implementation.
+   *
+   * Binary blocks are NG-decrypted with FileUncompressedSize as the key length
+   * (CodeWalker ExtractFileBinary). Resource blocks keep their 16-byte RSC
+   * header and have the remainder NG-decrypted with FileSize as the key length
+   * (CodeWalker ExtractFileResource); the zlib payload stays compressed — the
+   * game inflates it. Nested .rpf blocks are decrypted and copied whole (their
+   * own inner encryption is untouched; the game reads them natively).
+   */
+  async convertToOpen(
+    destPath: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ entries: number }> {
+    if (this.source.kind !== 'file') throw new Error('Only a file-backed archive can be converted.')
+    if (this.encryption !== 'NG') throw new Error('convertToOpen expects an NG-encrypted archive.')
+    if (!this.keys.ng) throw new Error('NG keys are unavailable — cannot convert.')
+    const ng = this.keys.ng
+    const srcPath = this.source.path
+
+    interface Slot {
+      index: number
+      newBlock: Buffer
+      newOffset: number
+    }
+
+    const srcFd = await fs.open(srcPath, 'r')
+    try {
+      const origHeader = Buffer.alloc(16)
+      await srcFd.read(origHeader, 0, 16, 0)
+
+      const newEntries = Buffer.from(this.entriesBuf)
+      const slots: Slot[] = []
+
+      for (let i = 0; i < this.entryCount; i++) {
+        if (i % 200 === 0) onProgress?.(i, this.entryCount)
+        const o = i * 16
+        const w0 = this.entriesBuf.readUInt32LE(o)
+        const w1 = this.entriesBuf.readUInt32LE(o + 4)
+        const w2 = this.entriesBuf.readUInt32LE(o + 8)
+        const w3 = this.entriesBuf.readUInt32LE(o + 12)
+        if (w1 === DIR_IDENT) continue
+        const isResource = (w1 & 0x80000000) !== 0
+        const nameOffset = w0 & 0xffff
+        const name = readCName(this.namesBuf, nameOffset)
+
+        if (!isResource) {
+          const fileSize = ((w0 >>> 16) | ((w1 & 0xff) << 16)) & 0xffffff
+          const offsetSectors = (w1 >>> 8) & 0xffffff
+          const uncompressed = w2 >>> 0
+          const encType = w3 >>> 0
+          const blockLen = fileSize > 0 ? fileSize : uncompressed
+          let block = await readInto(srcFd, offsetSectors * SECTOR, blockLen)
+          if (encType !== 0) block = decryptNg(block, name, uncompressed, ng)
+          writeBinaryEntry(newEntries, i, {
+            nameOffset,
+            sizeOnDisk: fileSize,
+            offsetSectors: 0, // patched below
+            uncompressedSize: uncompressed,
+            encrypted: false,
+          })
+          slots.push({ index: i, newBlock: block, newOffset: 0 })
+          continue
+        }
+
+        // resource entry
+        let fileSize = (w0 >>> 16) | ((w1 & 0xff) << 16) // 24-bit
+        const offsetSectors = (w1 >>> 8) & 0x7fffff
+        if (fileSize === 0xffffff) {
+          // real size is packed into the first 16 bytes of the block
+          const h = await readInto(srcFd, offsetSectors * SECTOR, 16)
+          fileSize = ((h[7] << 0) | (h[14] << 8) | (h[5] << 16) | (h[2] << 24)) >>> 0
+        } else if (fileSize === 0) {
+          fileSize = getSizeFromFlags(w2) + getSizeFromFlags(w3) // CodeWalker GetFileSize()
+        }
+        if (fileSize <= 16) throw new Error(`${name}: implausible resource size ${fileSize}`)
+        const block = await readInto(srcFd, offsetSectors * SECTOR, fileSize)
+        const header16 = block.subarray(0, 16)
+        const payload = block.subarray(16, fileSize)
+        const decPayload = decryptNg(payload, name, fileSize, ng)
+        const newBlock = Buffer.concat([header16, decPayload], fileSize)
+        slots.push({ index: i, newBlock, newOffset: 0 })
+      }
+
+      // Lay the blocks out contiguously after the (plaintext) TOC.
+      const namesLen = this.namesLength
+      let cursor = alignUp(16 + this.entryCount * 16 + namesLen, SECTOR)
+      for (const s of slots) {
+        s.newOffset = cursor
+        cursor += alignUp(s.newBlock.length, SECTOR)
+        const o = s.index * 16
+        const w1 = newEntries.readUInt32LE(o + 4)
+        const isResource = (w1 & 0x80000000) !== 0
+        if (isResource) {
+          newEntries.writeUInt32LE(
+            ((w1 & 0x800000ff) | (((s.newOffset / SECTOR) & 0x7fffff) << 8)) >>> 0,
+            o + 4,
+          )
+        } else {
+          newEntries.writeUInt32LE(
+            ((w1 & 0xff) | (((s.newOffset / SECTOR) & 0xffffff) << 8)) >>> 0,
+            o + 4,
+          )
+        }
+      }
+
+      const firstOffset = alignUp(16 + newEntries.length + namesLen, SECTOR)
+      const toc = Buffer.alloc(firstOffset)
+      origHeader.copy(toc, 0)
+      toc.writeUInt32LE(0x4e45504f, 12) // "OPEN"
+      newEntries.copy(toc, 16)
+      this.namesBuf.copy(toc, 16 + newEntries.length)
+
+      const tmp = `${destPath}.rktmp`
+      const outFd = await fs.open(tmp, 'w')
+      try {
+        await outFd.write(toc, 0, toc.length, 0)
+        for (const s of slots) {
+          const padded = Buffer.alloc(alignUp(s.newBlock.length, SECTOR))
+          s.newBlock.copy(padded)
+          await outFd.write(padded, 0, padded.length, s.newOffset)
+        }
+      } finally {
+        await outFd.close()
+      }
+      await fs.rm(destPath, { force: true })
+      await fs.rename(tmp, destPath)
+      return { entries: slots.length }
+    } finally {
+      await srcFd.close()
+    }
+  }
 }
 
 async function readInto(fd: fs.FileHandle, offset: number, len: number): Promise<Buffer> {
   const out = Buffer.alloc(len)
   if (len > 0) await fd.read(out, 0, len, offset)
   return out
+}
+
+/** Read a NUL-terminated latin1 name from the names blob. */
+function readCName(names: Buffer, off: number): string {
+  let end = off
+  while (end < names.length && names[end] !== 0) end++
+  return names.toString('latin1', off, end)
+}
+
+/**
+ * CodeWalker RpfResourceFileEntry.GetSizeFromFlags — resource block size packed
+ * into a system/graphics page-flags word. Kept for block-count / defrag math.
+ */
+export function getSizeFromFlags(flags: number): number {
+  const s0 = ((flags >>> 27) & 0x1) << 0
+  const s1 = ((flags >>> 26) & 0x1) << 1
+  const s2 = ((flags >>> 25) & 0x1) << 2
+  const s3 = ((flags >>> 24) & 0x1) << 3
+  const s4 = ((flags >>> 17) & 0x7f) << 4
+  const s5 = ((flags >>> 11) & 0x3f) << 5
+  const s6 = ((flags >>> 7) & 0xf) << 6
+  const s7 = ((flags >>> 5) & 0x3) << 7
+  const s8 = ((flags >>> 4) & 0x1) << 8
+  const ss = flags & 0xf
+  const baseSize = 0x200 << ss
+  return baseSize * (s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8)
 }
 
 function readNameOffset(entries: Buffer, index: number): number {
