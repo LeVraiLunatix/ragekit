@@ -129,6 +129,49 @@ if (typeof window !== 'undefined' && !window.api) {
       scan: async () => [],
       adopt: async () => [],
     },
+    oiv: {
+      pick: async () => 'D:\\Downloads\\NaturalVision Evolved.oiv',
+      inspect: async (path: string) => ({
+        sourcePath: path,
+        name: 'NaturalVision Evolved',
+        author: 'Razed',
+        authorLink: 'https://www.nvegamer.com',
+        version: '9.0',
+        description:
+          'A comprehensive graphics overhaul for Grand Theft Auto V.\n\nInstall to the mods folder so your vanilla files stay untouched. Requires the OpenIV.asi package loader.',
+        icon: undefined,
+        ops: [
+          { kind: 'replace' as const, target: 'common/data/timecycle/w_clear.xml', archive: 'update/update.rpf', supported: false, reason: 'writes inside update/update.rpf — apply with OpenIV' },
+          { kind: 'add' as const, target: 'update/update.rpf/common/data/reflection. dat', archive: 'update/update.rpf', supported: false, reason: 'writes inside update/update.rpf — apply with OpenIV' },
+          { kind: 'add' as const, target: 'visualsettings.dat', archive: '', size: 48210, supported: true },
+          { kind: 'replace' as const, target: 'plugins/NVE/config.ini', archive: '', size: 1200, supported: true },
+          { kind: 'xml-edit' as const, target: 'update/update.rpf/common/data/dlclist.xml', archive: 'update/update.rpf', supported: false, reason: 'in-place XML edit — apply with OpenIV' },
+        ],
+        counts: { add: 1, replace: 1, delete: 0, xmlEdit: 1, archive: 3, loose: 2 },
+        supported: 2,
+        total: 5,
+        targets: [
+          { id: 'mods' as const, path: 'D:\\Games\\GTAV\\mods', exists: true, recommended: true },
+          { id: 'game' as const, path: 'D:\\Games\\GTAV', exists: true, recommended: false },
+        ],
+      }),
+      install: async (_path: string, target) => ({
+        mod: { ...mockMod, kind: 'oiv' as const, name: 'NaturalVision Evolved', status: 'installed' as const, oivTarget: target },
+        report: {
+          target,
+          applied: 2,
+          skipped: 3,
+          failed: 0,
+          results: [
+            { target: 'visualsettings.dat', archive: '', kind: 'add' as const, status: 'applied' as const },
+            { target: 'plugins/NVE/config.ini', archive: '', kind: 'replace' as const, status: 'applied' as const },
+            { target: 'common/data/timecycle/w_clear.xml', archive: 'update/update.rpf', kind: 'replace' as const, status: 'skipped' as const, detail: 'update/update.rpf is NG-encrypted — use OpenIV' },
+            { target: 'common/data/reflection.dat', archive: 'update/update.rpf', kind: 'replace' as const, status: 'skipped' as const, detail: 'update/update.rpf is NG-encrypted — use OpenIV' },
+            { target: 'common/data/dlclist.xml', archive: 'update/update.rpf', kind: 'xml-edit' as const, status: 'skipped' as const, detail: 'in-place XML edit — apply with OpenIV' },
+          ],
+        },
+      }),
+    },
     profiles: {
       list: async () => mockProfiles,
       create: async (name: string) => {

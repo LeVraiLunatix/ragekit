@@ -7,6 +7,8 @@ import type {
   InstallPlan,
   Mod,
   ModKind,
+  OivInstallReport,
+  OivTarget,
   PlannedFile,
 } from '@shared/types'
 import { store, libraryDir, backupsDir } from '../store'
@@ -14,6 +16,7 @@ import { classifyFile } from './classify'
 import { detectCategory } from './category'
 import { inferRequiredDeps, dependencyStatus } from './deps'
 import { readOivPackage, stageOivLooseFiles } from './oiv'
+import { applyOivPackage } from './oivInstall'
 import { walk, ensureDir, copyFile, copyDir, pathExists, removeFileAndPrune } from './fsutil'
 import { findDlcPacks, installDlcPacks, uninstallDlcPacks } from '../rpf/dlcpack'
 
@@ -165,6 +168,78 @@ export async function importFromPaths(paths: string[]): Promise<ImportResult[]> 
 }
 
 // ---------------------------------------------------------------------------
+// .oiv packages — OpenIV-style install straight into a chosen base folder
+// ---------------------------------------------------------------------------
+
+export async function installOiv(
+  oivPath: string,
+  target: OivTarget,
+  onProgress?: (done: number, total: number, label: string) => void,
+): Promise<{ mod: Mod; report: OivInstallReport }> {
+  const gamePath = requireGamePath()
+  const id = randomUUID()
+  const modDir = join(libraryDir(), id)
+  const sourceDir = join(modDir, 'staged')
+  await ensureDir(sourceDir)
+
+  const stored = join(modDir, 'package.oiv')
+  await copyFile(oivPath, stored)
+
+  let meta: { name: string; author?: string; version?: string; description?: string }
+  try {
+    const { zip, pkg } = await readOivPackage(stored)
+    await stageOivLooseFiles(zip, pkg.looseOps, sourceDir).catch(() => [])
+    meta = {
+      name: pkg.metadata.name,
+      author: pkg.metadata.author,
+      version: pkg.metadata.version,
+      description: pkg.metadata.description,
+    }
+  } catch (err) {
+    await fs.rm(modDir, { recursive: true, force: true })
+    throw err
+  }
+
+  const { results, written } = await applyOivPackage(
+    stored,
+    target,
+    gamePath,
+    join(backupsDir(), id),
+    onProgress,
+  )
+
+  const report: OivInstallReport = {
+    target,
+    applied: results.filter((r) => r.status === 'applied').length,
+    skipped: results.filter((r) => r.status === 'skipped').length,
+    failed: results.filter((r) => r.status === 'failed').length,
+    results,
+  }
+
+  const mod: Mod = {
+    id,
+    name: meta.name,
+    author: meta.author,
+    version: meta.version,
+    description: meta.description,
+    kind: 'oiv',
+    status: written.length ? 'installed' : 'not-installed',
+    addedAt: new Date().toISOString(),
+    sourceDir,
+    installedFiles: written,
+    loadOrder: nextLoadOrder(),
+    tags: [],
+    category: await detectCategory(sourceDir, meta.name).catch(() => 'other' as const),
+    oivTarget: target,
+  }
+
+  const mods = getMods()
+  mods.push(mod)
+  saveMods(mods)
+  return { mod, report }
+}
+
+// ---------------------------------------------------------------------------
 // Planning
 // ---------------------------------------------------------------------------
 
@@ -283,6 +358,20 @@ export async function installMod(
   const mod = getMods().find((m) => m.id === modId)
   if (!mod) throw new Error(`Unknown mod ${modId}`)
   const gamePath = requireGamePath()
+
+  // .oiv packages re-apply through their own engine (loose files + archive
+  // replacements into the chosen base), not the drop-in file plan.
+  if (mod.kind === 'oiv') {
+    const { written } = await applyOivPackage(
+      join(dirname(mod.sourceDir), 'package.oiv'),
+      mod.oivTarget ?? 'game',
+      gamePath,
+      join(backupsDir(), modId),
+      onProgress,
+    )
+    return updateMod(modId, { status: 'installed', installedFiles: written })
+  }
+
   const plan = await buildPlan(modId)
   const modBackupDir = join(backupsDir(), modId)
 

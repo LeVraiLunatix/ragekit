@@ -11,6 +11,7 @@ import {
   importFromPaths,
   buildPlan,
   installMod,
+  installOiv,
   uninstallMod,
   setEnabled,
   setAllEnabled,
@@ -21,6 +22,7 @@ import {
   moveMod,
   fileConflicts,
 } from './mods/library'
+import { inspectOiv } from './mods/oiv'
 import { scanUnmanaged, adoptFound } from './mods/scan'
 import {
   setOnlineSafeMode,
@@ -279,6 +281,42 @@ export function registerIpc(): void {
     const game = getConfig().game
     if (!game?.valid) return []
     return scanUnmanaged(game.path)
+  })
+
+  ipcMain.handle(IPC.oivPick, async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const res = await dialog.showOpenDialog(win!, {
+      title: 'Select an .oiv package',
+      properties: ['openFile'],
+      filters: [
+        { name: 'OpenIV package', extensions: ['oiv'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    })
+    return res.canceled ? null : res.filePaths[0] ?? null
+  })
+
+  ipcMain.handle(IPC.oivInspect, (_e, path: string) => {
+    const game = getConfig().game
+    return inspectOiv(path, game?.valid ? game.path : null)
+  })
+
+  ipcMain.handle(IPC.oivInstall, async (_e, arg: { path: string; target: 'game' | 'mods' }) => {
+    const taskId = `oiv:${arg.path}`
+    const { mod, report } = await guardGameWrite(() =>
+      installOiv(arg.path, arg.target, (done, total, label) => {
+        broadcast(IPC.evtTaskProgress, {
+          taskId,
+          label: label || 'OIV package',
+          progress: total ? done / total : null,
+          done: false,
+        })
+      }),
+    )
+    broadcast(IPC.evtTaskProgress, { taskId, label: mod.name, progress: 1, done: true })
+    logActivity('install', [mod.id], { kind: 'disable', modIds: [mod.id] })
+    broadcast(IPC.evtModsChanged, null)
+    return { mod, report }
   })
 
   ipcMain.handle(IPC.modsAdopt, async (_e, items: FoundMod[]) => {

@@ -31,9 +31,13 @@ interface AppState {
   busy: string | null
   lastLaunch: LaunchReport | null
   launching: boolean
+  /** Absolute paths of .oiv packages waiting for the OpenIV-style installer. */
+  oivQueue: string[]
 
   setRoute: (r: Route) => void
   setBusy: (label: string | null) => void
+  enqueueOiv: (paths: string[]) => void
+  dequeueOiv: () => void
   bootstrap: () => Promise<void>
   refreshMods: () => Promise<void>
   refreshDeps: () => Promise<void>
@@ -57,9 +61,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   busy: null,
   lastLaunch: null,
   launching: false,
+  oivQueue: [],
 
   setRoute: (route) => set({ route }),
   setBusy: (busy) => set({ busy }),
+  enqueueOiv: (paths) =>
+    set((s) => ({ oivQueue: [...s.oivQueue, ...paths.filter((p) => !s.oivQueue.includes(p))] })),
+  dequeueOiv: () => set((s) => ({ oivQueue: s.oivQueue.slice(1) })),
 
   bootstrap: async () => {
     const [config, mods, profiles] = await Promise.all([

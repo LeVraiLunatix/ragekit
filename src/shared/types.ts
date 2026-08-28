@@ -99,6 +99,87 @@ export interface Mod {
   remoteUpdatedAt?: string
   /** Add-on DLC pack names registered in dlclist.xml for this mod. */
   dlcPacks?: string[]
+  /** For .oiv packages: which base folder the package was installed into. */
+  oivTarget?: OivTarget
+}
+
+// ---------------------------------------------------------------------------
+// .oiv packages — OpenIV-style installer
+// ---------------------------------------------------------------------------
+
+/** Where an .oiv package gets applied. */
+export type OivTarget = 'game' | 'mods'
+
+export type OivOpKind = 'add' | 'replace' | 'delete' | 'xml-edit'
+
+/** One operation from an .oiv `assembly.xml` <content> block. */
+export interface OivContentOp {
+  kind: OivOpKind
+  /** Destination path relative to the chosen base folder, slash-separated. */
+  target: string
+  /** RPF archive chain it lands in, slash-joined ('' for a loose file). */
+  archive: string
+  /** Source file size in bytes, when known (add / replace). */
+  size?: number
+  /** True when Ragekit's own installer can apply this operation. */
+  supported: boolean
+  /** Why it can't be applied here, when unsupported. */
+  reason?: string
+}
+
+/** One "install to…" choice offered in the installer dialog. */
+export interface OivTargetChoice {
+  id: OivTarget
+  /** Absolute path of the base folder. */
+  path: string
+  /** The folder already exists on disk. */
+  exists: boolean
+  /** Suggested default. */
+  recommended: boolean
+}
+
+/** Everything the installer dialog needs to describe an .oiv package. */
+export interface OivInspection {
+  sourcePath: string
+  name: string
+  author?: string
+  authorLink?: string
+  version?: string
+  /** Plain-text large description (RTF / HTML stripped). */
+  description?: string
+  /** data: URI of the package icon, when the .oiv ships one. */
+  icon?: string
+  ops: OivContentOp[]
+  counts: {
+    add: number
+    replace: number
+    delete: number
+    xmlEdit: number
+    /** Ops that write inside .rpf archives. */
+    archive: number
+    /** Ops that write loose files. */
+    loose: number
+  }
+  /** Operations Ragekit can apply itself. */
+  supported: number
+  total: number
+  targets: OivTargetChoice[]
+}
+
+export interface OivOpResult {
+  target: string
+  archive: string
+  kind: OivOpKind
+  status: 'applied' | 'skipped' | 'failed'
+  detail?: string
+}
+
+export interface OivInstallReport {
+  target: OivTarget
+  applied: number
+  skipped: number
+  failed: number
+  results: OivOpResult[]
 }
 
 export interface Profile {

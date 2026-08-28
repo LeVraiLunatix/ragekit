@@ -21,6 +21,9 @@ import type {
   NonVanillaScan,
   LaunchReport,
   ActivityEntry,
+  OivInspection,
+  OivInstallReport,
+  OivTarget,
 } from '@shared/types'
 
 export interface FileConflict {
@@ -71,6 +74,12 @@ const api = {
     conflicts: (): Promise<FileConflict[]> => ipcRenderer.invoke(IPC.modsConflicts),
     scan: (): Promise<FoundMod[]> => ipcRenderer.invoke(IPC.modsScan),
     adopt: (items: FoundMod[]): Promise<Mod[]> => ipcRenderer.invoke(IPC.modsAdopt, items),
+  },
+  oiv: {
+    pick: (): Promise<string | null> => ipcRenderer.invoke(IPC.oivPick),
+    inspect: (path: string): Promise<OivInspection> => ipcRenderer.invoke(IPC.oivInspect, path),
+    install: (path: string, target: OivTarget): Promise<{ mod: Mod; report: OivInstallReport }> =>
+      ipcRenderer.invoke(IPC.oivInstall, { path, target }),
   },
   profiles: {
     list: (): Promise<Profile[]> => ipcRenderer.invoke(IPC.profilesList),

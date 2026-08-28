@@ -34,6 +34,11 @@ export const IPC = {
   modsScan: 'mods:scan', // find mods installed outside the app
   modsAdopt: 'mods:adopt', // pull found mods into the library
 
+  // .oiv packages (OpenIV-style installer)
+  oivPick: 'oiv:pick', // native picker, returns a path
+  oivInspect: 'oiv:inspect', // path -> OivInspection
+  oivInstall: 'oiv:install', // { path, target } -> { mod, report }
+
   // profiles
   profilesList: 'profiles:list',
   profilesCreate: 'profiles:create',

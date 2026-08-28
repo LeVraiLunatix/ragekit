@@ -7,6 +7,7 @@ import { PromptProvider } from '@/components/PromptDialog'
 import { AdminBanner } from '@/components/AdminBanner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ActivityDrawer } from '@/components/ActivityDrawer'
+import { OivInstallDialog } from '@/components/OivInstallDialog'
 import { TitleBar } from '@/components/TitleBar'
 import { Sidebar } from '@/components/Sidebar'
 import { Spinner } from '@/components/ui'
@@ -39,6 +40,7 @@ function Shell(): ReactNode {
     <div className="flex h-full flex-col">
       <TitleBar onActivity={() => setActivityOpen(true)} />
       <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} />
+      <OivInstallDialog />
       <AdminBanner />
       {safe && <OnlineSafeBanner />}
       <div className="flex min-h-0 flex-1">

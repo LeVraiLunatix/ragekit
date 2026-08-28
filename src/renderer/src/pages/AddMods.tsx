@@ -1,5 +1,5 @@
 import { useCallback, useState, type DragEvent, type ReactNode } from 'react'
-import { UploadCloud, FolderOpen, Trash2, Download, Globe, ExternalLink } from 'lucide-react'
+import { UploadCloud, FolderOpen, Trash2, Download, Globe, ExternalLink, PackageOpen } from 'lucide-react'
 import type { ImportResult, RemoteMod } from '@shared/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useI18n } from '@/i18n'
@@ -116,9 +116,11 @@ function RemoteInstaller({
   )
 }
 
+const isOiv = (p: string): boolean => p.toLowerCase().endsWith('.oiv')
+
 export function AddModsPage(): ReactNode {
   const { t } = useI18n()
-  const { config, setRoute, refreshMods, refreshDeps } = useAppStore()
+  const { config, setRoute, refreshMods, refreshDeps, enqueueOiv } = useAppStore()
   const [results, setResults] = useState<ImportResult[]>([])
   const [importing, setImporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -144,10 +146,18 @@ export function AddModsPage(): ReactNode {
       const paths = Array.from(e.dataTransfer.files)
         .map((f) => window.api.misc.pathForFile(f))
         .filter(Boolean)
-      if (paths.length) void ingest(() => window.api.mods.importPaths(paths))
+      const oivs = paths.filter(isOiv)
+      const rest = paths.filter((p) => !isOiv(p))
+      if (oivs.length) enqueueOiv(oivs)
+      if (rest.length) void ingest(() => window.api.mods.importPaths(rest))
     },
-    [ingest],
+    [ingest, enqueueOiv],
   )
+
+  const pickOiv = useCallback(async () => {
+    const p = await window.api.oiv.pick()
+    if (p) enqueueOiv([p])
+  }, [enqueueOiv])
 
   return (
     <Page title={t('add.title')} subtitle={t('add.subtitle')}>
@@ -178,7 +188,7 @@ export function AddModsPage(): ReactNode {
       >
         <UploadCloud className={`size-9 ${dragOver ? 'text-brand' : 'text-ink-faint'}`} />
         <p className="mt-3 text-sm text-ink-soft">{t('add.dropHere')}</p>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
           <Button
             variant="primary"
             loading={importing}
@@ -187,7 +197,12 @@ export function AddModsPage(): ReactNode {
             <FolderOpen className="size-4" />
             {t('add.chooseFiles')}
           </Button>
+          <Button variant="outline" onClick={() => void pickOiv()}>
+            <PackageOpen className="size-4" />
+            {t('add.chooseOiv')}
+          </Button>
         </div>
+        <p className="mt-2 text-[11px] text-ink-faint">{t('add.oivHint')}</p>
       </div>
 
       <div className="mt-5 space-y-3">
