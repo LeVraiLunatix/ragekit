@@ -287,6 +287,82 @@ export class Rpf7 {
   }
 
   /**
+   * Same-name replacement of many binary files at once, in place: every new
+   * block is appended at the end of the archive and its entry repointed, then
+   * the TOC is overwritten once. The 99% of the archive that didn't change is
+   * never rewritten — fast, and no temp-file rename (so no Windows EPERM on the
+   * game folder). Directory tree, name table and entry count are untouched, so
+   * this only works for targets that already exist as binary files.
+   */
+  async replaceMany(
+    replace: Map<string, Buffer>,
+  ): Promise<{ replaced: string[]; missing: string[] }> {
+    if (this.source.kind !== 'file') throw new Error('Only a file-backed archive can be edited.')
+    if (this.encryption === 'AES' && !this.keys.aes) {
+      throw new Error('Editing this archive needs the AES key from GTA5.exe.')
+    }
+    if (this.encryption === 'NG') {
+      throw new Error('NG-encrypted archives must be converted to OPEN before editing.')
+    }
+
+    const jobs: Array<{ index: number; payload: Buffer; sizeOnDisk: number; uncompressed: number }> = []
+    const replaced: string[] = []
+    const missing: string[] = []
+    for (const [rawPath, content] of replace) {
+      const e = this.get(rawPath)
+      if (!e || e.isDir || e.isResource) {
+        missing.push(rawPath.replace(/\\/g, '/').toLowerCase())
+        continue
+      }
+      const comp = deflateRawSync(content, { level: 9 })
+      const useC = comp.length < content.length
+      jobs.push({
+        index: e.index,
+        payload: useC ? comp : content,
+        sizeOnDisk: useC ? comp.length : 0,
+        uncompressed: content.length,
+      })
+      replaced.push(e.path)
+    }
+    if (jobs.length === 0) return { replaced, missing }
+
+    const newEntries = Buffer.from(this.entriesBuf)
+    const fd = await fs.open(this.source.path, 'r+')
+    try {
+      let cursor = alignUp((await fd.stat()).size, SECTOR)
+      for (const j of jobs) {
+        const padded = Buffer.alloc(alignUp(j.payload.length, SECTOR))
+        j.payload.copy(padded)
+        await fd.write(padded, 0, padded.length, cursor)
+        writeBinaryEntry(newEntries, j.index, {
+          nameOffset: readNameOffset(newEntries, j.index),
+          sizeOnDisk: j.sizeOnDisk,
+          offsetSectors: cursor / SECTOR,
+          uncompressedSize: j.uncompressed,
+          encrypted: false,
+        })
+        cursor += padded.length
+      }
+      let outEntries: Buffer = newEntries
+      let outNames: Buffer = this.namesBuf
+      if (this.encryption === 'AES') {
+        outEntries = aesEncrypt(newEntries, this.keys.aes!)
+        outNames = aesEncrypt(this.namesBuf, this.keys.aes!)
+        const back = aesDecrypt(outEntries, this.keys.aes!)
+        if (back.readUInt32LE(4) !== DIR_IDENT || !back.equals(newEntries)) {
+          throw new Error('RPF TOC re-encryption failed a round-trip check — aborting write.')
+        }
+      }
+      await fd.write(outEntries, 0, outEntries.length, 16)
+      await fd.write(outNames, 0, outNames.length, 16 + outEntries.length)
+      newEntries.copy(this.entriesBuf)
+    } finally {
+      await fd.close()
+    }
+    return { replaced, missing }
+  }
+
+  /**
    * Rebuild the whole archive to `destPath` with a set of same-name file
    * replacements. Unlike {@link replaceFile} (which appends), this repacks every
    * block contiguously and rewrites the TOC — the directory tree, the name table
@@ -334,7 +410,7 @@ export class Rpf7 {
       newOffset: number
     }
 
-    const srcFd = await fs.open(srcPath, 'r')
+    let srcFd: fs.FileHandle | null = await fs.open(srcPath, 'r')
     try {
       const origSize = (await srcFd.stat()).size
       const origHeader = Buffer.alloc(16)
@@ -441,7 +517,7 @@ export class Rpf7 {
         for (const s of slots) {
           const block = s.newContent
             ? s.newContent.payload
-            : await readInto(srcFd, s.origOffset, s.origLen)
+            : await readInto(srcFd!, s.origOffset, s.origLen)
           const padded = Buffer.alloc(alignUp(block.length, SECTOR))
           block.copy(padded)
           await outFd.write(padded, 0, padded.length, s.newOffset)
@@ -449,11 +525,15 @@ export class Rpf7 {
       } finally {
         await outFd.close()
       }
+      // Release the read handle to destPath before swapping — Windows refuses to
+      // rename over a file that still has an open handle.
+      await srcFd.close()
+      srcFd = null
       await fs.rm(destPath, { force: true })
       await fs.rename(tmp, destPath)
       return { replaced, missing }
     } finally {
-      await srcFd.close()
+      if (srcFd) await srcFd.close()
     }
   }
 
@@ -488,7 +568,7 @@ export class Rpf7 {
       newOffset: number
     }
 
-    const srcFd =
+    let srcFd: fs.FileHandle | null =
       this.source.kind === 'file' ? await fs.open(this.source.path, 'r') : null
     const readSrc = (off: number, len: number): Promise<Buffer> =>
       this.source.kind === 'buffer'
@@ -578,6 +658,13 @@ export class Rpf7 {
       toc.writeUInt32LE(0x4e45504f, 12) // "OPEN"
       newEntries.copy(toc, 16)
       this.namesBuf.copy(toc, 16 + newEntries.length)
+
+      // Every block is already in memory — release the read handle so an
+      // in-place swap doesn't hit a Windows sharing violation.
+      if (srcFd) {
+        await srcFd.close()
+        srcFd = null
+      }
 
       if (destPath) {
         const tmp = `${destPath}.rktmp`
@@ -897,7 +984,7 @@ export class Rpf7 {
     outEntries.copy(toc, 16)
     outNames.copy(toc, 16 + outEntries.length)
 
-    const srcFd =
+    let srcFd: fs.FileHandle | null =
       this.source.kind === 'file' ? await fs.open(this.source.path, 'r') : null
     const materialize = async (b: (typeof blocks)[number]): Promise<Buffer> => {
       if (b.payload) return b.payload
@@ -920,6 +1007,11 @@ export class Rpf7 {
           }
         } finally {
           await outFd.close()
+        }
+        // Drop the read handle to destPath before the swap (Windows).
+        if (srcFd) {
+          await srcFd.close()
+          srcFd = null
         }
         await fs.rm(destPath, { force: true })
         await fs.rename(tmp, destPath)

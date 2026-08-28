@@ -387,8 +387,9 @@ export async function applyOivPackage(
           const r = await rpf.rebuildTree(mutations, archiveFs)
           for (const p of [...r.added, ...r.replaced]) done2.add(p)
         } else {
+          // Pure same-name replacements → append in place, no full repack.
           const map = new Map(mutations.map((m) => [m.path, m.content!]))
-          const r = await rpf.rebuild(map, archiveFs)
+          const r = await rpf.replaceMany(map)
           for (const p of r.replaced) done2.add(p)
         }
         written.add(slash(relative(gamePath, archiveFs)))

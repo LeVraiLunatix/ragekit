@@ -61,7 +61,18 @@ export class OivZip {
   }
 
   private entry(name: string): yauzl.Entry | undefined {
-    return this.entries.get(norm(name))
+    const key = norm(name)
+    const hit = this.entries.get(key)
+    if (hit) return hit
+    // Last resort for oddly-rooted packages: a unique entry ending in this path.
+    let found: yauzl.Entry | undefined
+    for (const [k, v] of this.entries) {
+      if (k.endsWith(`/${key}`)) {
+        if (found && found !== v) return undefined
+        found = v
+      }
+    }
+    return found
   }
 
   has(name: string): boolean {
